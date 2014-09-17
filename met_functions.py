@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Module containing various meterological calculations, conversions,
 and miscellaneous constants. Source for all equations is the met_functions.cpp
 file which is part of FireFamilyPlus. Ultimate source is unknown.
@@ -70,16 +71,22 @@ def calc_inv_pot_temp(temp,elev):
 
 def calc_vp(temp) :
     """Calculate the saturation vapor pressure (in Pa) from the temperature 
-    passed (C)."""
-    tempk = temp + CELTOKEL
-    return 611 * np.exp((17.27 * temp) / tempk)
+    passed (C). This is a "Magnus approximation" formula, expressed as 
+    equation 21 in:
+    
+    Alduchov, Oleg A., and Robert E. Eskridge. “Improved Magnus Form 
+      Approximation of Saturation Vapor Pressure.” Journal of Applied 
+      Meteorology 35, no. 4 (April 1, 1996): 601–9. 
+      doi:10.1175/1520-0450(1996)035<0601:IMFAOS>2.0.CO;2.
+    """
+    return 610.94 * np.exp((17.625 * temp) / (243.04 + temp))
 
-def calc_vpd(Tday, Tdew) :
+def calc_vpd(Tday, vp_act) :
     """Calculate vapor pressure deficit given the measured temperature and 
-    dewpoint (C). Returns the VPD in Pa, limited to the range [0-9000Pa]."""
+    actual (modeled) vapor pressure. Returns the VPD in Pa, limited to the 
+    range [0-9000Pa]."""
 
     vp_sat = calc_vp(Tday)
-    vp_act = calc_vp(Tdew)
     vpd = vp_sat - vp_act
     if (vpd > 9000) :
         vpd = 9000.0
@@ -88,9 +95,11 @@ def calc_vpd(Tday, Tdew) :
     return vpd
 
 def calc_tdew(vp) :
-    """Calculates the dewpoint temperature in C given the vapor pressure in
-    Pa."""
-    return (CELTOKEL/(1-np.log(vp/611)/19.59)) - CELTOKEL
+    """The inverse of calc_vp, calculates the dewpoint temperature in C given 
+    the saturation vapor pressure in Pa. Obtain this equation simply by solving
+    for temp in the calc_vp equation.
+    Note that calc_tdew(calc_vp(t)) should equal t."""
+    return 243.04 / (17.625*np.log(-vp/610.94)-1)
     
 
 def calc_dayl(lat,yday):
@@ -103,8 +112,7 @@ def calc_dayl(lat,yday):
 
     # check for (+/-) 90 degrees latitude, throws off daylength calc 
     lat *= RADPERDEG
-    lat[np.where(lat>HALF_PI)] = HALF_PI
-    lat[np.where(lat<-HALF_PI)] = -HALF_PI
+    np.clip(lat, -HALF_PI, HALF_PI, out=lat)
     coslat = np.cos(lat)
     sinlat = np.sin(lat)
     
@@ -118,8 +126,7 @@ def calc_dayl(lat,yday):
     cosegeom = coslat * cosdecl
     sinegeom = sinlat * sindecl
     coshss = -(sinegeom) / cosegeom
-    coshss[np.where(coshss<-1.0)] = -1.0 # 24-hr daylight
-    coshss[np.where(coshss>1.0)]  = 1.0  # 0-hr daylight 
+    np.clip(coshss, -1.0, 1.0, out=coshss)
     hss = np.acos(coshss)              # hour angle at sunset (radians) 
     
     # daylength (seconds) 
@@ -128,7 +135,10 @@ def calc_dayl(lat,yday):
 def calc_vp_spec_humidity(q, p) :
     """ORCHIDEE inputs have specific humidity "q" (g/g) and pressure "p" (Pa). 
     Technically, the units of pressure don't matter, as the return value will
-    be expressed in whatever pressure units you use."""
+    be expressed in whatever pressure units you use.
+    I got the raw material for this from lecture notes on the web. Good luck finding it: 
+    http://www.geog.ucsb.edu/~joel/g266_s10/lecture_notes/chapt03/oh10_3_01/oh10_3_01.html
+    """
     
     # calculate the mixing ratio
     w = q / (1.0 - q)
