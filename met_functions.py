@@ -19,14 +19,14 @@ LR_STD = 0.0065
 T_STD = 288.15
 R = 8.3143
 MA = 28.9644e-3
-P_STD 101325.0
+P_STD = 101325.0
 """Standard value for sea level pressure (Pa)"""
-G_STD 9.80665
+G_STD = 9.80665
 """Standard value for gravitational acceleration (m/s^2)"""
 
 # Radiation constants
 RADPERDEG = 0.01745329
-HALF_PI   = pi/2.0
+HALF_PI   = math.pi/2.0
 MINDECL = -0.4092797
 DAYSOFF = 11.25
 SECPERRAD = 13750.9871
@@ -99,7 +99,7 @@ def calc_tdew(vp) :
     the saturation vapor pressure in Pa. Obtain this equation simply by solving
     for temp in the calc_vp equation.
     Note that calc_tdew(calc_vp(t)) should equal t."""
-    return 243.04 / (17.625*np.log(-vp/610.94)-1)
+    return 243.04 / (17.625/np.log(vp/610.94)-1)
     
 
 def calc_dayl(lat,yday):
