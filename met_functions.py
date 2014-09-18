@@ -69,17 +69,6 @@ def calc_inv_pot_temp(temp,elev):
     return (invpottemp - CELTOKEL)
 
 
-def calc_vp(temp) :
-    """Calculate the saturation vapor pressure (in Pa) from the temperature 
-    passed (C). This is a "Magnus approximation" formula, expressed as 
-    equation 21 in:
-    
-    Alduchov, Oleg A., and Robert E. Eskridge. “Improved Magnus Form 
-      Approximation of Saturation Vapor Pressure.” Journal of Applied 
-      Meteorology 35, no. 4 (April 1, 1996): 601–9. 
-      doi:10.1175/1520-0450(1996)035<0601:IMFAOS>2.0.CO;2.
-    """
-    return 610.94 * np.exp((17.625 * temp) / (243.04 + temp))
 
 def calc_vpd(Tday, vp_act) :
     """Calculate vapor pressure deficit given the measured temperature and 
@@ -94,12 +83,6 @@ def calc_vpd(Tday, vp_act) :
         vpd = 0.0
     return vpd
 
-def calc_tdew(vp) :
-    """The inverse of calc_vp, calculates the dewpoint temperature in C given 
-    the saturation vapor pressure in Pa. Obtain this equation simply by solving
-    for temp in the calc_vp equation.
-    Note that calc_tdew(calc_vp(t)) should equal t."""
-    return 243.04 / (17.625/np.log(vp/610.94)-1)
     
 
 def calc_dayl(lat,yday):

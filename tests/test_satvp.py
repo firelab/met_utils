@@ -1,8 +1,8 @@
 import unittest
-import met_functions as met
+import satvp
 import numpy as np
 
-class TestMetFunctions (unittest.TestCase) :
+class TestSaturationVapor (unittest.TestCase) :
     
     def setUp(self) : 
         """Tabulated values of saturation vapor pressure taken
@@ -15,17 +15,30 @@ class TestMetFunctions (unittest.TestCase) :
     
     def test_calc_vp(self) :
         """Ensure that the approximation formulas produce data which matches 
-        the tabulated values of the vapor pressure of water. Values taken
-        from the CRC Handbook of Chemistry and physics, 77th edition 1996-1997, 
-        pg 6-13"""
-        test_vp_kpa = met.calc_vp(self.temp_c) / 1000.0
+        the tabulated values of the vapor pressure of water. Tolerance is 
+        0.1 kPa."""
+        
+        for method in satvp.vp_calcs.keys() :
+            calc = satvp.vp_calcs[method]
+            
+            test_vp_kpa = calc.calc_vp(self.temp_c) / 1000.0
 
-        for i in range(len(test_vp_kpa)): 
-            self.assertAlmostEqual(self.vp_kpa[i], test_vp_kpa[i], places=1,
-               msg= "Failure on calc_vp(%f) == %f (got %f)" % (self.temp_c[i],self.vp_kpa[i],test_vp_kpa[i]))
+            for i in range(len(test_vp_kpa)): 
+                self.assertAlmostEqual(self.vp_kpa[i], test_vp_kpa[i], places=1,
+                msg= "Failure on %s.calc_vp(%f) == %f (got %f)" % (method, self.temp_c[i],self.vp_kpa[i],test_vp_kpa[i]))
                
-    def test_calc_tdew(self):
+    def test_inverse(self) : 
+        """Ensures that calc_vp and calc_tdew are inverse functions"""
+        for method in satvp.vp_calcs.keys() : 
+            calc = satvp.vp_calcs[method]
+            
+            self.assertAlmostEqual(20., calc.calc_tdew(calc.calc_vp(20.)),
+                msg = "%s does not implement an inverse function pair" % method)
+                
+    def test_dictionary(self): 
+        """Just to make sure we are seeing what I expect to see"""
+        self.assertEqual(len(satvp.vp_calcs), 8)
         
                
-suite = unittest.TestLoader().loadTestsFromTestCase(TestMetFunctions)
-unittest.TextTestRunner(verbosity=2).run(suite)
+#suite = unittest.TestLoader().loadTestsFromTestCase(TestSaturationVapor)
+#unittest.TextTestRunner(verbosity=2).run(suite)
