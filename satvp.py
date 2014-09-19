@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Classes and factory methods to express the relationships between saturation
-vapor pressue and dewpoint temperature."""
+"""Classes and concrete calculators to express the relationships between 
+saturation vapor pressue and dewpoint temperature. These are peer-reviewed.
+If you don't care which one is best, just use "default", and use degrees C and 
+Pascals."""
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
@@ -66,6 +68,12 @@ class Magnus10 (MagnusApproximation) :
         
 vp_calcs={ "AERK" : MagnusExp(610.94, 17.625, 243.04, [-40,50]),
            "AEDK" : MagnusExp(611.02, 17.621, 242.97, [-40,50]),
+           "AEDG" : MagnusExp(611.05, 17.546, 241.81, [-40,50]),
+           "AEDW" : MagnusExp(611.28, 17.610, 242.89, [-40,50]),
+           "AEDS" : MagnusExp(611.52, 17.616, 242.91, [-40,50]),
+           "AERG" : MagnusExp(610.72, 17.578, 242.25, [-40,50]),
+           "AERW" : MagnusExp(610.85, 17.654, 243.49, [-40,50]),
+           "AERS" : MagnusExp(611.07, 17.660, 243.51, [-40,50]),
            "AT85" : MagnusExp(610.70, 17.38, 239.0, [-40,50]),
            "TE30" : Magnus10(611, 7.5, 237.3, [-40,50]),
            "MA67" : Magnus10(610.78, 7.63, 241.9, [-40,50]),
@@ -73,10 +81,10 @@ vp_calcs={ "AERK" : MagnusExp(610.94, 17.625, 243.04, [-40,50]),
            "AL88" : Magnus10(610.7, 7.665, 243.33, [-40, 50]),
            "SA90" : MagnusExp(611.2, 17.62, 243.12, [-40, 50]) }
 """vp_calcs is a collection of predefined approximate saturation vapor pressure 
-calculators. The names in the dictionary come from Table 1 of Alduchov, 1996. 
-See Table 2 in that same paper for estimates of accuracy and relative error over the 
-temperature range -40C to 50C. The recommendation of the paper is to use the 
-"AERK" version.
+calculators. The names in the dictionary and the coefficients for the approximations
+come from Table 1 of Alduchov, 1996. See Table 2 in that same paper for 
+estimates of accuracy and relative error over the temperature range -40C to 50C. 
+The recommendation of the paper is to use the "AERK" version.
 
 Coefficients relate saturation vapor pressure in Pascals to dewpoint temperature
 in degrees C.

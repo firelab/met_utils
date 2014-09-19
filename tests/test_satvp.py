@@ -36,8 +36,8 @@ class TestSaturationVapor (unittest.TestCase) :
                 msg = "%s does not implement an inverse function pair" % method)
                 
     def test_dictionary(self): 
-        """Just to make sure we are seeing what I expect to see"""
-        self.assertEqual(len(satvp.vp_calcs), 8)
+        """Sanity check"""
+        self.assertEqual(len(satvp.vp_calcs), 14)
         
                
 #suite = unittest.TestLoader().loadTestsFromTestCase(TestSaturationVapor)
