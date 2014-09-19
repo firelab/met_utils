@@ -9,6 +9,7 @@ I have also added code specific to dealing with ORCHIDEE's typical meterological
 inputs."""
 
 import numpy as np
+from  satvp import default as vp
 import math
 
 CELTOKEL = 273.15
@@ -75,7 +76,7 @@ def calc_vpd(Tday, vp_act) :
     actual (modeled) vapor pressure. Returns the VPD in Pa, limited to the 
     range [0-9000Pa]."""
 
-    vp_sat = calc_vp(Tday)
+    vp_sat = vp.calc_vp(Tday)
     vpd = vp_sat - vp_act
     if (vpd > 9000) :
         vpd = 9000.0

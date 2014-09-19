@@ -66,6 +66,41 @@ class Magnus10 (MagnusApproximation) :
         """Implements: C / ( (B/log10(vp/A)) - 1 )"""
         return self._C / (self._B/np.log10(vp/self._A)-1)
         
+class BuckApproximation (SaturationVapor) : 
+    """The Buck approximation has a form that is nearly as computationally 
+    efficient as the Magnus approximation for the temperature to vapor pressure
+    calculation. However, the inverse is not efficient at all."""
+    def __init__(self, A, B, C, D) :
+        self._A = A
+        self._B = B
+        self._C = C
+        self._D = D
+        
+    def calc_vp(self, tempc) : 
+        """Implements A*exp(t*(B - t/C)/(D + t))"""
+        return self._A * np.exp(tempc * (self._B - tempc/self._C) /(tempc + self._D))
+        
+    def calc_tdew(self, vp) : 
+        """Sympy algebraic solver gives the expression for 't' as: 
+           B*C/2 - 
+           sqrt(C)*sqrt(B**2*C + 2*B*C*log(A) - 2*B*C*log(svp) + 
+                        C*log(A)**2 - 2*C*log(A)*log(svp) + 
+                        C*log(svp)**2 + 4*D*log(A) - 
+                        4*D*log(svp))/2 + 
+           C*log(A)/2 - C*log(svp)/2"""
+
+        t = self._B * self._C / 2
+        t -= np.sqrt(self._C) * np.sqrt((self._B**2)*self._C + 
+                2*self._B*self._C*(np.log(self._A) - np.log(vp)) +
+                (self._C*np.log(self._A)**2) -
+                2*self._C*np.log(self._A)*np.log(vp) +
+                self._C*np.log(vp)**2 + 
+                4*self._D*np.log(self._A) - 
+                4*self._D*np.log(vp)) / 2
+        t += self._C*np.log(self._A) / 2
+        t -= self._C*np.log(vp)/2
+        return t
+        
 vp_calcs={ "AERK" : MagnusExp(610.94, 17.625, 243.04, [-40,50]),
            "AEDK" : MagnusExp(611.02, 17.621, 242.97, [-40,50]),
            "AEDG" : MagnusExp(611.05, 17.546, 241.81, [-40,50]),
@@ -79,7 +114,8 @@ vp_calcs={ "AERK" : MagnusExp(610.94, 17.625, 243.04, [-40,50]),
            "MA67" : Magnus10(610.78, 7.63, 241.9, [-40,50]),
            "BU81" : MagnusExp(611.21, 17.502, 240.97, [-40,50]),
            "AL88" : Magnus10(610.7, 7.665, 243.33, [-40, 50]),
-           "SA90" : MagnusExp(611.2, 17.62, 243.12, [-40, 50]) }
+           "SA90" : MagnusExp(611.2, 17.62, 243.12, [-40, 50]),
+           "BU-2" : BuckApproximation(611.21, 18.729, 227.3, 257.87)}
 """vp_calcs is a collection of predefined approximate saturation vapor pressure 
 calculators. The names in the dictionary and the coefficients for the approximations
 come from Table 1 of Alduchov, 1996. See Table 2 in that same paper for 

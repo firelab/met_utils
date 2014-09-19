@@ -37,7 +37,7 @@ class TestSaturationVapor (unittest.TestCase) :
                 
     def test_dictionary(self): 
         """Sanity check"""
-        self.assertEqual(len(satvp.vp_calcs), 14)
+        self.assertEqual(len(satvp.vp_calcs), 15)
         
                
 #suite = unittest.TestLoader().loadTestsFromTestCase(TestSaturationVapor)
