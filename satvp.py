@@ -6,6 +6,10 @@ Pascals."""
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
+from scimath.units.pressure import Pa, kPa
+from scimath.units.temperature import degC
+from scimath.units.dimensionless import dimensionless
+from scimath.units.api import has_units, UnitArray
 
 class SaturationVapor (object) : 
     """Concrete subclasses implement a relationship between saturation vapor
@@ -33,9 +37,19 @@ class MagnusApproximation (SaturationVapor) :
     
     __metaclass__ = ABCMeta
     
-    def __init__(self, A, B, C, range) : 
+    @has_units
+    def __init__(self, A, B, C, range) :
+        """ Instantiates a mangus approximation class.
+            
+            Parameters
+            ----------
+            A : scalar : units = Pa
+            B : scalar : units = dimensionless
+            C : scalar : units = degC
+            range : array : units = degC
+        """
         self._A = A
-        self._B = B
+        self._B = B 
         self._C = C
         self._range = range
         
@@ -46,24 +60,64 @@ class MagnusExp (MagnusApproximation) :
     """Concrete class which implements a magnus approximation using natural
     logarithm and e."""
     
+    @has_units
     def calc_vp(self, temp):
-        """Implements: A * e^( B * temp / (C + temp))"""
+        """Implements: A * e^( B * temp / (C + temp))
+        
+           Parameters
+           ----------
+           temp : array : units = degC
+           
+           Returns
+           -------
+           c : array : units = Pa
+        """
         return self._A * np.exp((self._B * temp) / (self._C + temp))
         
+    @has_units
     def calc_tdew(self, vp) :
-        """Implements: C / ( (B/ln(vp/A)) - 1 )"""
+        """Implements: C / ( (B/ln(vp/A)) - 1 )
+        
+           Parameters
+           ----------
+           vp : array : units = Pa
+           
+           Returns
+           -------
+           t : array : units = degC
+        """
         return self._C / (self._B/np.log(vp/self._A)-1)
         
 class Magnus10 (MagnusApproximation) : 
     """Concrete class which implements a magnus approximation using log base 10
     and powers of 10"""
     
+    @has_units
     def calc_vp(self, temp) :
-        """Implements: A * 10^( B * temp / (C + temp))"""
+        """Implements: A * 10^( B * temp / (C + temp))
+        
+           Parameters
+           ----------
+           temp : array : units = degC
+           
+           Returns
+           -------
+           c : array : units = Pa
+        """
         return self._A * (10 ** ((self._B * temp) / (self._C + temp)))
         
+    @has_units
     def calc_tdew(self, vp) : 
-        """Implements: C / ( (B/log10(vp/A)) - 1 )"""
+        """Implements: C / ( (B/log10(vp/A)) - 1 )
+        
+           Parameters
+           ----------
+           vp : array : units = Pa
+           
+           Returns
+           -------
+           t : array : units = degC
+        """
         return self._C / (self._B/np.log10(vp/self._A)-1)
         
 class BuckApproximation (SaturationVapor) : 
@@ -76,10 +130,21 @@ class BuckApproximation (SaturationVapor) :
         self._C = C
         self._D = D
         
+    @has_units    
     def calc_vp(self, tempc) : 
-        """Implements A*exp(t*(B - t/C)/(D + t))"""
-        return self._A * np.exp(tempc * (self._B - tempc/self._C) /(tempc + self._D))
+        """Implements A*exp(t*(B - t/C)/(D + t))
         
+           Parameters
+           ----------
+           tempc : array : units = degC
+           
+           Returns
+           -------
+           c : array : units = Pa
+        """
+        return self._A * np.exp(tempc * (self._B - tempc/self._C) /(tempc + self._D))
+    
+    @has_units        
     def calc_tdew(self, vp) : 
         """Sympy algebraic solver gives the expression for 't' as: 
            B*C/2 - 
@@ -87,7 +152,16 @@ class BuckApproximation (SaturationVapor) :
                         C*log(A)**2 - 2*C*log(A)*log(svp) + 
                         C*log(svp)**2 + 4*D*log(A) - 
                         4*D*log(svp))/2 + 
-           C*log(A)/2 - C*log(svp)/2"""
+           C*log(A)/2 - C*log(svp)/2
+           
+           Parameters
+           ----------
+           vp : array : units = Pa
+           
+           Returns
+           -------
+           t : array : units = degC
+           """
 
         t = self._B * self._C / 2
         t -= np.sqrt(self._C) * np.sqrt((self._B**2)*self._C + 
