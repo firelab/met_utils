@@ -6,10 +6,8 @@ Pascals."""
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
-from scimath.units.pressure import Pa, kPa
-from scimath.units.temperature import degC
-from scimath.units.dimensionless import dimensionless
-from scimath.units.api import has_units, UnitArray
+from astropy import units as u
+
 
 class SaturationVapor (object) : 
     """Concrete subclasses implement a relationship between saturation vapor
@@ -37,7 +35,6 @@ class MagnusApproximation (SaturationVapor) :
     
     __metaclass__ = ABCMeta
     
-    @has_units
     def __init__(self, A, B, C, range) :
         """ Instantiates a mangus approximation class.
             
@@ -60,7 +57,6 @@ class MagnusExp (MagnusApproximation) :
     """Concrete class which implements a magnus approximation using natural
     logarithm and e."""
     
-    @has_units
     def calc_vp(self, temp):
         """Implements: A * e^( B * temp / (C + temp))
         
@@ -74,7 +70,6 @@ class MagnusExp (MagnusApproximation) :
         """
         return self._A * np.exp((self._B * temp) / (self._C + temp))
         
-    @has_units
     def calc_tdew(self, vp) :
         """Implements: C / ( (B/ln(vp/A)) - 1 )
         
@@ -92,7 +87,6 @@ class Magnus10 (MagnusApproximation) :
     """Concrete class which implements a magnus approximation using log base 10
     and powers of 10"""
     
-    @has_units
     def calc_vp(self, temp) :
         """Implements: A * 10^( B * temp / (C + temp))
         
@@ -106,7 +100,6 @@ class Magnus10 (MagnusApproximation) :
         """
         return self._A * (10 ** ((self._B * temp) / (self._C + temp)))
         
-    @has_units
     def calc_tdew(self, vp) : 
         """Implements: C / ( (B/log10(vp/A)) - 1 )
         
@@ -123,14 +116,15 @@ class Magnus10 (MagnusApproximation) :
 class BuckApproximation (SaturationVapor) : 
     """The Buck approximation has a form that is nearly as computationally 
     efficient as the Magnus approximation for the temperature to vapor pressure
-    calculation. However, the inverse is not efficient at all."""
+    calculation. However, the inverse is not efficient at all. In addition, the 
+    mathematical expression for the inverse has us taking the log of 
+    quantities with units, which is not allowed by astropy."""
     def __init__(self, A, B, C, D) :
         self._A = A
         self._B = B
         self._C = C
         self._D = D
         
-    @has_units    
     def calc_vp(self, tempc) : 
         """Implements A*exp(t*(B - t/C)/(D + t))
         
@@ -144,7 +138,6 @@ class BuckApproximation (SaturationVapor) :
         """
         return self._A * np.exp(tempc * (self._B - tempc/self._C) /(tempc + self._D))
     
-    @has_units        
     def calc_tdew(self, vp) : 
         """Sympy algebraic solver gives the expression for 't' as: 
            B*C/2 - 
@@ -174,22 +167,23 @@ class BuckApproximation (SaturationVapor) :
         t += self._C*np.log(self._A) / 2
         t -= self._C*np.log(vp)/2
         return t
-        
-vp_calcs={ "AERK" : MagnusExp(610.94, 17.625, 243.04, [-40,50]),
-           "AEDK" : MagnusExp(611.02, 17.621, 242.97, [-40,50]),
-           "AEDG" : MagnusExp(611.05, 17.546, 241.81, [-40,50]),
-           "AEDW" : MagnusExp(611.28, 17.610, 242.89, [-40,50]),
-           "AEDS" : MagnusExp(611.52, 17.616, 242.91, [-40,50]),
-           "AERG" : MagnusExp(610.72, 17.578, 242.25, [-40,50]),
-           "AERW" : MagnusExp(610.85, 17.654, 243.49, [-40,50]),
-           "AERS" : MagnusExp(611.07, 17.660, 243.51, [-40,50]),
-           "AT85" : MagnusExp(610.70, 17.38, 239.0, [-40,50]),
-           "TE30" : Magnus10(611, 7.5, 237.3, [-40,50]),
-           "MA67" : Magnus10(610.78, 7.63, 241.9, [-40,50]),
-           "BU81" : MagnusExp(611.21, 17.502, 240.97, [-40,50]),
-           "AL88" : Magnus10(610.7, 7.665, 243.33, [-40, 50]),
-           "SA90" : MagnusExp(611.2, 17.62, 243.12, [-40, 50]),
-           "BU-2" : BuckApproximation(611.21, 18.729, 227.3, 257.87)}
+
+nd = u.dimensionless_unscaled        
+vp_calcs={ "AERK" : MagnusExp(610.94*u.Pa, 17.625*nd, 243.04*u.deg_C, np.array([-40,50])*u.deg_C),
+           "AEDK" : MagnusExp(611.02*u.Pa, 17.621*nd, 242.97*u.deg_C, np.array([-40,50])*u.deg_C),
+           "AEDG" : MagnusExp(611.05*u.Pa, 17.546*nd, 241.81*u.deg_C, np.array([-40,50])*u.deg_C),
+           "AEDW" : MagnusExp(611.28*u.Pa, 17.610*nd, 242.89*u.deg_C, np.array([-40,50])*u.deg_C),
+           "AEDS" : MagnusExp(611.52*u.Pa, 17.616*nd, 242.91*u.deg_C, np.array([-40,50])*u.deg_C),
+           "AERG" : MagnusExp(610.72*u.Pa, 17.578*nd, 242.25*u.deg_C, np.array([-40,50])*u.deg_C),
+           "AERW" : MagnusExp(610.85*u.Pa, 17.654*nd, 243.49*u.deg_C, np.array([-40,50])*u.deg_C),
+           "AERS" : MagnusExp(611.07*u.Pa, 17.660*nd, 243.51*u.deg_C, np.array([-40,50])*u.deg_C),
+           "AT85" : MagnusExp(610.70*u.Pa, 17.38*nd, 239.0*u.deg_C, np.array([-40,50])*u.deg_C),
+           "TE30" : Magnus10(611*u.Pa, 7.5*nd, 237.3*u.deg_C, np.array([-40,50])*u.deg_C),
+           "MA67" : Magnus10(610.78*u.Pa, 7.63*nd, 241.9*u.deg_C, np.array([-40,50])*u.deg_C),
+           "BU81" : MagnusExp(611.21*u.Pa, 17.502*nd, 240.97*u.deg_C, np.array([-40,50])*u.deg_C),
+           "AL88" : Magnus10(610.7*u.Pa, 7.665*nd, 243.33*u.deg_C, np.array([-40,50])*u.deg_C),
+           "SA90" : MagnusExp(611.2*u.Pa, 17.62*nd, 243.12*u.deg_C, np.array([-40,50])*u.deg_C)}
+           #"BU-2" : BuckApproximation(611.21*u.Pa, 18.729*nd, 227.3*u.deg_C, 257.87*u.deg_C)}
 """vp_calcs is a collection of predefined approximate saturation vapor pressure 
 calculators. The names in the dictionary and the coefficients for the approximations
 come from Table 1 of Alduchov, 1996. See Table 2 in that same paper for 
