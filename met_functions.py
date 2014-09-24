@@ -11,6 +11,7 @@ inputs."""
 import numpy as np
 from  satvp import default as vp
 import math
+from astropy import units as u
 
 CELTOKEL = 273.15
 """Celcius to Kelvin conversion"""
@@ -33,9 +34,9 @@ DAYSOFF = 11.25
 SECPERRAD = 13750.9871
 
 # constants for humidity
-M_V = 18
+M_V = 18 * (u.g/u.mol)
 """Molar mass of water vapor (g/mol)"""
-M_D = 28.964
+M_D = 28.964 * (u.g/u.mol)
 """Molar mass of dry air (g/mol), US Standard Atmosphere (1976) via CRC Handbook
 of Chemistry and Physics, 77th edition 1996-1997, pp. 14-16"""
 EPSILON = M_V/M_D
@@ -78,10 +79,7 @@ def calc_vpd(Tday, vp_act) :
 
     vp_sat = vp.calc_vp(Tday)
     vpd = vp_sat - vp_act
-    if (vpd > 9000) :
-        vpd = 9000.0
-    if(vpd < 0) :
-        vpd = 0.0
+    np.clip(vpd, 0*u.Pa, 9000*u.Pa)
     return vpd
 
     
@@ -120,13 +118,40 @@ def calc_vp_spec_humidity(q, p) :
     """ORCHIDEE inputs have specific humidity "q" (g/g) and pressure "p" (Pa). 
     Technically, the units of pressure don't matter, as the return value will
     be expressed in whatever pressure units you use.
-    I got the raw material for this from lecture notes on the web. Good luck finding it: 
-    http://www.geog.ucsb.edu/~joel/g266_s10/lecture_notes/chapt03/oh10_3_01/oh10_3_01.html
+    
+    This is equation 2.19 (p. 17) of [1], solved for vapor pressure.
+    
+    [1] Rogers, R. R. A Short Course in Cloud Physics, Third Edition. 
+        3 edition. Oxford ; New York: Pergamon, 1989.
     """
     
-    # calculate the mixing ratio
-    w = q / (1.0 - q)
+    return (p*q)/(q + EPSILON - q*EPSILON)
     
-    return p * (w / (EPSILON + w))
+def mixing_ratio(vp, p) :
+    """Calculates the mixing ratio given the vapor pressure and the total pressure.
     
+    Implements equation 2.18 (p.17) of [1].
     
+    [1] Rogers, R. R. A Short Course in Cloud Physics, Third Edition. 
+        3 edition. Oxford ; New York: Pergamon, 1989.
+    """
+    return EPSILON * (vp / (p - vp))
+    
+
+def calc_rh_spec_humidity(q, p, t) :
+    """RH is needed for the various NFDRS fuel moistures.
+    
+    Implements equation 2.20 (p. 17) of [1].
+    
+    [1] Rogers, R. R. A Short Course in Cloud Physics, Third Edition. 
+        3 edition. Oxford ; New York: Pergamon, 1989.    
+    """
+    e = calc_vp_spec_humidity(q,p)
+    w = mixing_ratio(e,p)
+    
+    e_sat = vp.calc_vp(t)
+    w_sat  = mixing_ratio(e_sat, p)
+    
+    return (w/w_sat).to(u.pct)
+    
+           
