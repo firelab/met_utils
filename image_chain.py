@@ -94,6 +94,22 @@ class IndividualStateOperator (CellArrayOperator):
  
         
 class NdarrayRoundRobin(np.ndarray) : 
+    """ndarray subclass which implements round-robin indexing along one axis.
+    
+    A class which presents a view of an ndarray such that one of the axes behaves
+    in a round robin fashion. The axis given round-robin properties is always 
+    the length specified by the "shape" parameter, but the zero-point is incremented 
+    whenever "next" is called. This means that index zero becomes the highest-index value
+    and all other indices are effectively decremented by one. No data values are
+    copied.
+    
+    This is never meant to be instantiated directly, only created as a view 
+    of an existing ndarray.
+    
+    Element-wise operations will not assume round robin behavior, as these are
+    typically implemented on the underlying databuffer and the databuffer is 
+    not affected. The round robin behavior is exhibited on indexing only. 
+    """
     def __array_finalize__(self, obj) :
         self.__i_history = 0
         self.histdim   = len(obj.shape) - 1
