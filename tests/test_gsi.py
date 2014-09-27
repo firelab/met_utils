@@ -35,10 +35,10 @@ class TestNormalize(unittest.TestCase) :
         
 class TestGSI(unittest.TestCase) : 
     def setUp(self) :
-        self.gsi = gsi.GSI()
-        self.xf_tmin = self.gsi.xf_tmin
-        self.xf_vpd  = self.gsi.xf_vpd
-        self.xf_photo= self.gsi.xf_photo
+        # these are hard to get at because they're private.
+        self.xf_tmin = gsi.__dict__['__xf_tmin'] 
+        self.xf_vpd  = gsi.__dict__['__xf_vpd']
+        self.xf_photo= gsi.__dict__['__xf_photo']
         
     def test_photoperiod_low(self) : 
         """a value off the low end of the scale"""
@@ -84,7 +84,7 @@ class TestGSI(unittest.TestCase) :
         photo = (gsi.PHOTO_MIN + gsi.PHOTO_MAX) / 2.
         vpd = (gsi.VPD_MIN + gsi.VPD_MAX) / 2.
         
-        self.assertLess(self.gsi.evaluate(tmin, vpd, photo) - (0.5**3), 1e-5)
+        self.assertLess(gsi.calc_gsi(tmin, vpd, photo) - (0.5**3), 1e-5)
         
     def test_gsi_array(self): 
         """test entire gsi calculation with array inputs"""
@@ -93,7 +93,7 @@ class TestGSI(unittest.TestCase) :
         photo = frac * (gsi.PHOTO_MAX-gsi.PHOTO_MIN) + gsi.PHOTO_MIN
         vpd = (1-frac) * (gsi.VPD_MAX-gsi.VPD_MIN) + gsi.VPD_MIN
         
-        i_gsi = self.gsi.evaluate(tmin,vpd, photo)
+        i_gsi = gsi.calc_gsi(tmin,vpd, photo)
         
         for i in range(len(frac)) :
             self.assertLess(i_gsi[i] - (frac[i]**3), 1e-5)

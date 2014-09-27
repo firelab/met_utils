@@ -1,4 +1,14 @@
 # -*- coding: utf-8 -*-
+"""Implements growing season index calculations.
+
+For more information see [1]
+
+[1] Jolly, William M., Ramakrishna Nemani, and Steven W. Running. 2005. 
+    “A Generalized, Bioclimatic Index to Predict Foliar Phenology in Response 
+    to Climate.” Global Change Biology 11 (4): 619–32. 
+    doi:10.1111/j.1365-2486.2005.00930.x. 
+"""
+
 import numpy as np
 from astropy import units as u
 
@@ -33,43 +43,34 @@ class Normalize (object) :
             scaled_x = np.clip(scaled_x, 0, 1)
             
         return scaled_x
+                
+def calc_gsi(tmin, vpd, photo) : 
+    """calculate the growing season index
+    
+    input variables must be defined using the correct units or errors
+    will result.
+    
+    Parameters
+    ----------
+    tmin : array : deg_C
+        daily minimum temperature
+    vpd  : array : Pa
+        vapor pressure deficit
+    photo : array : hours
+        photoperiod: time from sunrise to sunset
         
-class GSI (object) : 
-    """Implements growing season index calculations.
-    
-    For more information see [1]
-    
-    [1] Jolly, William M., Ramakrishna Nemani, and Steven W. Running. 2005. 
-        “A Generalized, Bioclimatic Index to Predict Foliar Phenology in Response 
-        to Climate.” Global Change Biology 11 (4): 619–32. 
-        doi:10.1111/j.1365-2486.2005.00930.x.
+    Returns
+    -------
+    gsi : array : dimensionless
+        growing season index
     """
-    def __init__(self) :
-        self.xf_tmin = Normalize(TMIN_MIN, TMIN_MAX)
-        self.xf_vpd  = Normalize(VPD_MIN, VPD_MAX)
-        self.xf_photo= Normalize(PHOTO_MIN, PHOTO_MAX)
-        
-    def evaluate(self, tmin, vpd, photo) : 
-        """calculate the growing season index
-        
-        input variables must be defined using the correct units or errors
-        will result.
-        
-        Parameters
-        ----------
-        tmin : array : deg_C
-            daily minimum temperature
-        vpd  : array : Pa
-            vapor pressure deficit
-        photo : array : hours
-            photoperiod: time from sunrise to sunset
-            
-        Returns
-        -------
-        gsi : array : dimensionless
-            growing season index
-        """
-        tmin_i = self.xf_tmin.scale(tmin)
-        vpd_i  = 1 - self.xf_vpd.scale(vpd)
-        photo_i= self.xf_photo.scale(photo)
-        return tmin_i * vpd_i * photo_i
+    tmin_i = __xf_tmin.scale(tmin)
+    vpd_i  = 1 - __xf_vpd.scale(vpd)
+    photo_i= __xf_photo.scale(photo)
+    return tmin_i * vpd_i * photo_i
+
+# Singleton, module private instances of the scaling relationships for use
+# inside the GSI calculation        
+__xf_tmin = Normalize(TMIN_MIN, TMIN_MAX)
+__xf_vpd  = Normalize(VPD_MIN, VPD_MAX)
+__xf_photo= Normalize(PHOTO_MIN, PHOTO_MAX)
