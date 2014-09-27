@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Functions and classes to calculate fuel moisture.
 
@@ -20,6 +21,7 @@ at a time.
 """
 from astropy import units as u
 from astropy.units import imperial as iu
+import image_chain as ic
 
 ## \fn eqmc (self,Temp,RH)
 ## \brief Calculate the equilibrium moisture content
@@ -61,8 +63,8 @@ def eqmc (Temp,RH):
 ## \param Temp Temperature (deg F)
 ## \param RH Relative Humidity (%)
 ## \param SOW State of the Weather (0-9)
-def oneten (Temp, RH, SOW):
-    """One and ten hour fuel moisture computation.
+def oneten_nfdrs (Temp, RH, SOW):
+    """One and ten hour fuel moisture computation using 1978 NFDRS method.
     
     This function adjusts standard exposed instrument readings (for temperature
     and RH) from 4.5 feet off the ground in a shelter to "fuel level" as per 
@@ -106,6 +108,46 @@ def oneten (Temp, RH, SOW):
        Temp = Temp.to(iu.deg_F, u.temperature())	
     emc = eqmc(tfact + Temp, hfact * RH)    
     return (1.03*emc, 1.28*emc)
+    
+def oneten_ofdm(temp, rh, srad, fm_100) : 
+    """one and ten hour fuel moisture using the Oklahoma fire danger model
+    
+    Calculates the one and ten hour fuel moistures using the methodology in [1].
+    This method does not require knowledge of the "state of the weather", and 
+    may be easier to use with simulated met data.
+    
+    Parameters
+    ----------
+    temp : array : deg_C
+        1.5 m temperature observation
+    rh   : array : pct
+        1.5 m relative humidity observation
+    srad : array : W / m**2
+        1.5 m solar radiation observation from Li-Cor LI-200s pyranometer 
+        (bandpass: 400-1100nm)
+    fm_100 : array : pct
+        calculated 100-hr fuel moisture (dry basis)
+        
+    Returns
+    -------
+    fm : array : pct
+        tuple containing 1 and 10 hour % fuel moistures
+    
+    
+    [1] Carlson, J. D., Robert E. Burgan, David M. Engle, and 
+        Justin R. Greenfield. 2002. “The Oklahoma Fire Danger Model: An 
+        Operational Tool for Mesoscale Fire Danger Rating in Oklahoma.” 
+        International Journal of Wildland Fire 11 (4): 183–91.
+    """
+    
+    fuel_temp = (srad/1353)*(13.9 * u.m**2 * u.deg_C /u.W) + temp
+    fuel_rh   = (1 - (0.25*u.m**2/u.W)*(srad/1353))*rh
+    
+    fm_basis = 0.8 * emc(fuel_temp, fuel_rh) 
+    fm_10 = fm_basis + 0.2 * fm_100
+    fm_1  = fm_basis + 0.2 * fm_10
+    
+    return (fm_1, fm_10)
 
 	## \fn hundredthous (self, Temp,RH,MaxTemp,MaxRH,MinTemp, MinRH,Julian,PrecipDur)
 	## \brief Calculate the hundred and thousand hour moisture contents
