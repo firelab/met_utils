@@ -13,20 +13,88 @@ import numpy as np
 from abc import ABCMeta, abstractmethod
 
 class ArrayOperator (object) :
+    """Code which performs a calculation on one or more input arrays producing one or more output arrays
+    
+    
+    """
     pass
     
 class CellArrayOperator (ArrayOperator) :
-    """Performs the operation on the array on a cell-by-cell basis"""
-    def apply(self, index) : 
+    """Performs the operation on the array on a cell-by-cell basis
+    
+    This class requires the outputs and all the inputs to be coregistered. This 
+    means that all of the inputs and outputs have the same shape. Values in 
+    the inputs and outputs having the same index correspond. The 
+    main function of this class is to iterate over the array, applying the 
+    operation to each cell. The outputs are allocated by this class, and the 
+    inputs are provided.
+    """
+    __metaclass__ = ABCMeta
+    
+    def __init__(self, inputs, output_keys, dtype=None) : 
+        """Initializes a new CellArrayOperator with inputs and outputs.
+        
+        Parameters
+        ----------
+        inputs : dictionary containing names as keys and ndarrays as values
+        output_keys : array of keys to use for the output ndarray dictionary
+        dtype (optional) : type of the output datasets (otherwise same as one 
+              of the input datasets.)
+        """
+        self._input_arrays = inputs
+        shape = None
+        
+        
+        for v in inputs.values() : 
+            if shape == None : 
+                shape = v.shape
+            if shape != v.shape : 
+                raise TypeError("All inputs must have the same shape.")
+            if dtype == None : 
+                dtype = v.dtype
+        
+        self._output_arrays = {}     
+        for out_name in output_keys : 
+            self._output_arrays[out_name]=np.empty(shape, dtype=dtype)
+    
+    def apply(self) : 
+        """iterate over the array
+        
+        Note that the default behavior is to iterate over the array and 
+        perform a calculation on each cell. If alternative behavior is desired,
+        (such as, for instance, performing array math), this function should
+        be overridden.
+        """
+        for i in np.ndenumerate(self._input_arrays[0]) : 
+            self._apply_to_cell(i)
+            
+    def get_outputs(self) : 
+        return self._output_arrays
+        
+    def get_inputs(self) : 
+        return self._input_arrays
+    
+    @abstractmethod
+    def _apply_to_cell(self, index) : 
+        """given an index and the inputs, perform the operation and store result
+        
+        This method, implemented by the subclass, is how the inputs are mapped
+        to the function/method arguments."""
         pass
     
 class FunctionArrayOperator (CellArrayOperator) : 
     """Applies a function to individual cells of an array.
     
     In essense, this adapts a standalone function to the processing of 
-    array data. Primarily, it maps the input ndarrays to function arguments.
+    array data. Primarily, it maps the input ndarrays to function arguments, 
+    and function output(s) to (the) output ndarray(s). To populate more than
+    one output array, the registered function should return a tuple of 
+    values.
     """
-    pass
+    def __init__(self, input_dict, output_keys, function) : 
+        super(FunctionArrayOperator, self).__init__(input_dict, output_keys)
+        self._function = function
+        
     
     
 class IndividualStateOperator (CellArrayOperator): 
@@ -52,10 +120,13 @@ class IndividualStateOperator (CellArrayOperator):
         self.hist_depth = self._get_history_depth()
         shape = shape + (self.hist_depth,)
         self._history = np.recarray(shape, dtype=dtype)
+        self._rr_view = self._history.view(NdarrayRoundRobin)
+        self._rr_view.histdim = len(shape) # + 1 (history) - 1 (zero based)
         
         self._i_history = 0
         
         self._init_history()
+        
         
     @abstractmethod
     def _get_history_dtype(self) :
@@ -108,7 +179,11 @@ class NdarrayRoundRobin(np.ndarray) :
     
     Element-wise operations will not assume round robin behavior, as these are
     typically implemented on the underlying databuffer and the databuffer is 
-    not affected. The round robin behavior is exhibited on indexing only. 
+    not affected. The round robin behavior is exhibited on indexing only.
+    
+    Additionally, the round-robin functionality is very limited. Only explicit
+    indices are allowed (no slicing, no ellipses, no array indexing). You are 
+    pretty much limited to extracting or setting individual values.
     """
     def __array_finalize__(self, obj) :
         self.__i_history = 0
@@ -118,9 +193,12 @@ class NdarrayRoundRobin(np.ndarray) :
     def next(self) : 
         self.__i_history = (self.__i_history + 1) % self.obj.shape[self.histdim]
         
-    def __recalc_index(self, index) : 
+    def get_history_index(self, hist) : 
+        return (hist + self.__i_history) % self.obj.shape[self.histdim]
+    
+    def recalc_index(self, index) : 
         """Intercept and recompute the history dimension"""
-        i_new = (index[self.histdim] + self.__i_history) % self.obj.shape[self.histdim]
+        i_new = self.get_history_index(index[self.histdim])
         if self.histdim == 0 : 
             index = (i_new,) + index[1:]
         elif self.histdim == len(self.obj.shape)-1 :
@@ -131,7 +209,7 @@ class NdarrayRoundRobin(np.ndarray) :
         return index
                 
     def __getitem__(self, index) : 
-        return self.obj[self.__recalc_index(index)]
+        return self.obj[self.recalc_index(index)]
         
     def __setitem__(self, index, val) :
-        self.obj[self.__recalc_index(index)] = val
+        self.obj[self.recalc_index(index)] = val

@@ -13,25 +13,13 @@ from  satvp import default as vp
 import math
 from astropy import units as u
 
-CELTOKEL = 273.15
-"""Celcius to Kelvin conversion"""
-
-# Constants for potential temperature and pressure calculation
-LR_STD = 0.0065
-T_STD = 288.15
-R = 8.3143
-MA = 28.9644e-3
-P_STD = 101325.0
-"""Standard value for sea level pressure (Pa)"""
-G_STD = 9.80665
-"""Standard value for gravitational acceleration (m/s^2)"""
 
 # Radiation constants
-RADPERDEG = 0.01745329
-HALF_PI   = math.pi/2.0
-MINDECL = -0.4092797
-DAYSOFF = 11.25
-SECPERRAD = 13750.9871
+RADPERDAY = 0.017214 * u.rad / u.day
+HALF_PI   = math.pi/2.0 * u.rad
+MINDECL = -0.4092797 * u.rad
+DAYSOFF = 11.25 * u.day
+SECPERRAD = 13750.9871 * u.s / u.rad
 
 # constants for humidity
 M_V = 18 * (u.g/u.mol)
@@ -43,32 +31,6 @@ EPSILON = M_V/M_D
 """Ratio of water vapor to dry air molar mass."""
 
 
-
-
-
-def calc_pres(elev) : 
-    """Calculate pressure in Pascals given elevation in ???"""
-    t1 = 1.0 - (LR_STD * elev) / T_STD
-    t2 = G_STD / (LR_STD * ( R / MA ))
-    pa = P_STD * pow(t1,t2)
-    return pa
-
-def calc_pot_temp(temp,elev) :
-    """Calculates the potential temperature given ??? temperature and 
-    elevation."""
-    pa = calc_pres(elev)
-    pa /= 100.0
-    prat = 1000 / pa
-    pottemp = (temp + CELTOKEL) * np.power(prat,0.286)
-    return pottemp - CELTOKEL
-    
-def calc_inv_pot_temp(temp,elev):
-    """???"""
-    pa = calc_pres(elev)
-    pa /= 100.0
-    prat = 1000 / pa
-    invpottemp = (temp + CELTOKEL) / (np.power(prat,0.286))
-    return (invpottemp - CELTOKEL)
 
 
 
@@ -93,15 +55,14 @@ def calc_dayl(lat,yday):
     to hold daylengths for every pixel, every day of year."""
 
     # check for (+/-) 90 degrees latitude, throws off daylength calc 
-    lat *= RADPERDEG
     np.clip(lat, -HALF_PI, HALF_PI, out=lat)
     coslat = np.cos(lat)
     sinlat = np.sin(lat)
     
     # calculate cos and sin of declination 
-    decl = MINDECL * math.cos((yday + DAYSOFF) * RADPERDAY) # yday is scalar
-    cosdecl = math.cos(decl)
-    sindecl = math.sin(decl)
+    decl = MINDECL * np.cos((yday + DAYSOFF) * RADPERDAY) # yday is scalar
+    cosdecl = np.cos(decl)
+    sindecl = np.sin(decl)
     
         
     # calculate daylength as a function of lat and decl 
@@ -109,10 +70,10 @@ def calc_dayl(lat,yday):
     sinegeom = sinlat * sindecl
     coshss = -(sinegeom) / cosegeom
     np.clip(coshss, -1.0, 1.0, out=coshss)
-    hss = np.acos(coshss)              # hour angle at sunset (radians) 
+    hss = np.arccos(coshss)              # hour angle at sunset (radians) 
     
     # daylength (seconds) 
-    return 2.0 * hss * SECPERRAD;
+    return 2.0 * hss * SECPERRAD
     
 def calc_vp_spec_humidity(q, p) :
     """ORCHIDEE inputs have specific humidity "q" (g/g) and pressure "p" (Pa). 
@@ -154,4 +115,48 @@ def calc_rh_spec_humidity(q, p, t) :
     
     return (w/w_sat).to(u.pct)
     
+
+# Below here, functions were just copied out of the C code because they 
+# were low hanging fruit. There is no current need for them, they have not
+# been converted to use the units framework, and they are not tested.
+# use at your own risk.
+
+CELTOKEL = 273.15
+"""Celcius to Kelvin conversion"""
+
+# Constants for potential temperature and pressure calculation
+LR_STD = 0.0065
+T_STD = 288.15
+R = 8.3143
+MA = 28.9644e-3
+P_STD = 101325.0
+"""Standard value for sea level pressure (Pa)"""
+G_STD = 9.80665
+"""Standard value for gravitational acceleration (m/s^2)"""
+
+
+def calc_pres(elev) : 
+    """Calculate pressure in Pascals given elevation in ???"""
+    t1 = 1.0 - (LR_STD * elev) / T_STD
+    t2 = G_STD / (LR_STD * ( R / MA ))
+    pa = P_STD * pow(t1,t2)
+    return pa
+
+def calc_pot_temp(temp,elev) :
+    """Calculates the potential temperature given ??? temperature and 
+    elevation."""
+    pa = calc_pres(elev)
+    pa /= 100.0
+    prat = 1000 / pa
+    pottemp = (temp + CELTOKEL) * np.power(prat,0.286)
+    return pottemp - CELTOKEL
+    
+def calc_inv_pot_temp(temp,elev):
+    """???"""
+    pa = calc_pres(elev)
+    pa /= 100.0
+    prat = 1000 / pa
+    invpottemp = (temp + CELTOKEL) / (np.power(prat,0.286))
+    return (invpottemp - CELTOKEL)
+
            

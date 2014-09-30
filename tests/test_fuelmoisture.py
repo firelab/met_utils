@@ -2,6 +2,7 @@ import unittest
 from astropy import units as u
 from astropy.units import imperial as iu
 import fuelmoisture as fm
+import met_functions as met
 import numpy as np
 
 class TestFuelMoisture(unittest.TestCase) : 
@@ -36,3 +37,20 @@ class TestFuelMoisture(unittest.TestCase) :
         ot = fm.oneten_nfdrs(tc, rh, 0)
         expected_ratio = 1.03/1.28
         self.assertLess(np.abs(ot[0]/ot[1]-expected_ratio), 1e-5)
+        
+    def test_precip_sub_day(self):
+        """Tests that interpretation of precip works"""
+        
+        # testing certain scalars
+        self.assertLess(fm.precip_duration_sub_day([0]/u.day, 4 / u.day) - 0 * u.hour, 
+            1e-5*u.hour, "Failed to produce zero precip!")
+        self.assertLess(fm.precip_duration_sub_day([1]/u.day, 4 / u.day) - 1 * u.hour, 
+            1e-5*u.hour, "Single rain observation should be 1 hour rain")
+        interpval = (1 + (3-1)*(24-1)/(4-1.))
+        self.assertLess(fm.precip_duration_sub_day([3]/u.day, 4 / u.day) - interpval * u.hour,
+            1e-5*u.hour, "More than one rain observation should be interpolated") 
+            
+        # testing array
+        self.assertTrue(np.all(fm.precip_duration_sub_day( [0,1,3]/u.day, 4/u.day) - 
+                               [0,1,interpval] * u.hour < 1.e-5 * u.hour),
+                               "Array data type failed")
