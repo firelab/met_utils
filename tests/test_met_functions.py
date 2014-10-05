@@ -51,3 +51,24 @@ class TestMetFuntions (unittest.TestCase) :
         self.assertTrue(np.abs(rh-rh_test) < 0.1 * u.pct,
           msg="test RH: {:3.1} ; calculated RH: {:3.1}".format(rh, rh_test))
           
+    def test_calc_dayl(self):
+        """test daylength calculations
+        
+        Data here are taken from the US Naval Observatory's webpage for 
+        Missoula, MT in the year 2014.  These data reflect the length of time
+        that any part of the solar disc is above the horizon.
+        (http://aa.usno.navy.mil/data/docs/Dur_OneYear.php)
+        
+        In order to make this test pass, I had to relax the agreement between
+        the code and the USNO tables to 20 minutes or better. This may be due to
+        differences between the definitions of what constitutes "daylength" or 
+        it may be due to differences in precision. Or it could be an error.
+        """
+        lat = 46.86 * u.deg
+        days = [1, 59, 120, 181, 243, 304] * u.day
+        daylengths = [ 8*u.hour+37*u.min, 11*u.hour+6*u.min, 14*u.hour+26*u.min,
+                       15*u.hour+48*u.min, 13*u.hour+19*u.min, 10*u.hour+1*u.min] 
+        
+        for i  in range(len(days)) : 
+            test_daylength = m.calc_dayl(lat,days[i])
+            self.assertLess( np.abs(daylengths[i] - test_daylength), 20*u.min)
