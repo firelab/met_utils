@@ -66,9 +66,43 @@ class TestMetFuntions (unittest.TestCase) :
         """
         lat = 46.86 * u.deg
         days = [1, 59, 120, 181, 243, 304] * u.day
-        daylengths = [ 8*u.hour+37*u.min, 11*u.hour+6*u.min, 14*u.hour+26*u.min,
-                       15*u.hour+48*u.min, 13*u.hour+19*u.min, 10*u.hour+1*u.min] 
+        daylengths = u.Quantity([ 8*u.hour+37*u.min, 11*u.hour+6*u.min, 14*u.hour+26*u.min,
+                       15*u.hour+48*u.min, 13*u.hour+19*u.min, 10*u.hour+1*u.min], u.hour)
         
         for i  in range(len(days)) : 
             test_daylength = m.calc_dayl(lat,days[i])
             self.assertLess( np.abs(daylengths[i] - test_daylength), 20*u.min)
+            
+    def test_calc_dayl_latarray(self): 
+        """
+        Test may 1st for Missoula, Denver, Atlanta
+        """
+        day = 120 * u.day
+        lats = [46.86, 39.72, 33.77 ] * u.deg
+        daylengths = u.Quantity([ 14*u.hour+26*u.min, 13*u.hour+54*u.min, 13*u.hour+32*u.min ], u.hour)
+        
+        test_daylengths = m.calc_dayl(lats, day)
+        self.assertTrue(np.all( np.abs(test_daylengths-daylengths) < 20*u.min))
+        
+    def test_calc_dayl_datearray(self): 
+        """Test Missoula throughout the year, using days as an array"""
+        lat = 46.86 * u.deg
+        days = [1, 59, 120, 181, 243, 304] * u.day
+        daylengths = u.Quantity([ 8*u.hour+37*u.min, 11*u.hour+6*u.min, 14*u.hour+26*u.min,
+                       15*u.hour+48*u.min, 13*u.hour+19*u.min, 10*u.hour+1*u.min], u.hour)
+        test_daylengths=m.calc_dayl(lat,days)
+        self.assertTrue(np.all(np.abs(test_daylengths-daylengths) < 20*u.min))
+        
+    def test_calc_dayl_botharrays(self): 
+        """Test yday and lat as arrays
+        
+        Missoula on day 243, Denver and Atlanta on day 120.
+        """
+        lats = [46.86, 39.72, 33.77 ] * u.deg
+        days = [243,   120,   120]    * u.day
+        daylengths = u.Quantity([ 13*u.hour+19*u.min, 13*u.hour+54*u.min, 13*u.hour+32*u.min ], u.hour)
+        
+        test_daylengths = m.calc_dayl(lats, days)
+        self.assertTrue(np.all( np.abs(test_daylengths-daylengths) < 20*u.min))
+
+

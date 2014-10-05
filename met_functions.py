@@ -50,9 +50,13 @@ def calc_dayl(lat,yday):
     """Daylength function from MT-CLIM. Returns length of day in seconds
     given latitude in degrees and yday as integer day of year.
     
-    To keep things sane, we expect lat may be an array, but yday should be 
-    a scalar. We do not want to encourage the allocation of enough memory
-    to hold daylengths for every pixel, every day of year."""
+    To keep things sane, we expect either lat or yday may be an array, but the
+    other should be a scalar. The returned array should correspond to whichever
+    input variable was an array. Providing arrays for both lat and yday is 
+    very likely to fail, and on the off chance that you provided same-length
+    arrays, the lat, yday, and result arrays should be treated as parallel data
+    items (the first element in lat and yday produced the first element in the 
+    returned array.)"""
 
     # check for (+/-) 90 degrees latitude, throws off daylength calc 
     np.clip(lat, -HALF_PI, HALF_PI, out=lat)
