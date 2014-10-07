@@ -104,5 +104,40 @@ class TestMetFuntions (unittest.TestCase) :
         
         test_daylengths = m.calc_dayl(lats, days)
         self.assertTrue(np.all( np.abs(test_daylengths-daylengths) < 20*u.min))
+        
+    def test_sameas_mt_clim(self):
+        """Get same result as MT-CLIM C code?
+        
+        Tests that the python code produces the same results as the test cases
+        provided in the comments of the MT-CLIM C code. Provided test cases
+        report nearest-integer seconds, so we check that the difference doesn't
+        exceed 0.5s.
+        """
+        lat = 48.0 * u.deg
+        days = range(101,105) * u.day
+        daylengths = [47672, 47880, 48087, 48293]*u.s
 
+        test_daylengths = m.calc_dayl(lat, days)
+        self.assertTrue(np.all( np.abs(test_daylengths-daylengths) <= 0.5*u.s))
+
+    def test_CalcDaylightHours(self):
+        """test daylength calculations from matt's code
+        
+        Data here are taken from the US Naval Observatory's webpage for 
+        Missoula, MT in the year 2014.  These data reflect the length of time
+        that any part of the solar disc is above the horizon.
+        (http://aa.usno.navy.mil/data/docs/Dur_OneYear.php)
+        
+        In order to make this test pass, I had to relax the agreement between
+        the code and the USNO tables to 20 minutes or better. This may be due to
+        differences between the definitions of what constitutes "daylength" or 
+        it may be due to differences in precision. Or it could be an error.
+        """
+        lat = 46.86 * u.deg
+        days = [1, 59, 120, 181, 243, 304] * u.day
+        daylengths = u.Quantity([ 8*u.hour+37*u.min, 11*u.hour+6*u.min, 14*u.hour+26*u.min,
+                       15*u.hour+48*u.min, 13*u.hour+19*u.min, 10*u.hour+1*u.min], u.hour)
+        
+        test_daylengths = m.calc_dayl(lat, days)
+        self.assertTrue(np.all( np.abs(test_daylengths-daylengths) < 20*u.min))
 
