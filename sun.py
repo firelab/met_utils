@@ -119,16 +119,32 @@ def body_altitude(dec, obs_lat, hour_angle) :
     """Calculates the altitude (elevation) of a body given the sky coords and hour angle
     
     Equation 13.6, p 93
+    
     """
+    
     sin_alt = np.sin(obs_lat)*np.sin(dec) + np.cos(obs_lat)*np.cos(dec)*np.cos(hour_angle)
     return np.arcsin(sin_alt)
     
-def fix_day(time, unit) : 
-    if time < 0*unit : 
-        time += 1*unit
-    elif time > 1*unit : 
-        time -= 1*unit
-    return time
+def v_body_altitude(dec, obs_lat, hour_angle) : 
+    """vectorized version of the body altitude calculation
+    
+    the size of declination and hour angle arrays are correlated with the number
+    of observation times. The number of observation lats is independent. These 
+    should form a 2D array of shape: (obs_lat.size,dec.size) This function 
+    loops over the body_altitude function once for each observation latitude.
+    """
+    if obs_lat.size > 1 : 
+        sin_alt = u.Quantity(np.empty(obs_lat.size, dec.size), unit=u.dimensionless_unscaled)
+        for i in range(obs_lat.size) : 
+            sin_alt[i,:] = body_altitude(dec[i,:], obs_lat[i], hour_angle[i,:])
+    else : 
+        sin_alt = body_altitude(dec,obs_lat, hour_angle)
+    return sin_alt
+
+    
+def fix_day(time) : 
+    """bounds the fractional day to [0,1]"""
+    return time % (1*time.unit)
     
 
 class Ecliptic(object) : 
@@ -323,9 +339,13 @@ class Uptime(object) :
         delta_t = H0/(360*u.deg/u.sday)
         m1 = m0 - delta_t
         m2 = m0 + delta_t
-        self._approx_m = u.Quantity([fix_day(m0, u.sday),
-                                     fix_day(m1, u.sday),
-                                     fix_day(m2, u.sday)])
+        self._approx_m = u.Quantity( np.empty((m0.size, 3), dtype=m0.dtype), unit=m0.unit)
+        print fix_day(m0)
+        print m0.size
+        print self._approx_m.shape
+        self._approx_m[:,0] = fix_day(m0)
+        self._approx_m[:,1] = fix_day(m1)
+        self._approx_m[:,2] = fix_day(m2)
         return self._approx_m
     
     def _correct_rise_set(self, h, dec, lat, hour_angle):
@@ -335,6 +355,7 @@ class Uptime(object) :
         """
         delta_m = (h-self.h0) / ((360*u.deg/u.day)*np.cos(dec)*np.cos(lat)*np.sin(hour_angle))
         return delta_m
+        
     
     def correction(self) :
         """Calculates a correction to transit/rise/set times
@@ -352,7 +373,10 @@ class Uptime(object) :
         # the fraction of the day will also be longer.
         # also change units.
         #m_solar_day = (self.approximate()*1.0027379093604878) * (u.day/u.sday)
-        m_solar_day = c.Angle(self.approximate()*360.985647 * u.deg/u.sday)
+        m_sidereal = self.approximate()
+        m_solar_day = c.Angle(m_sidereal*(360.985647 * u.deg/u.sday))
+        print self.midnight_utc
+        print repr(m_solar_day/(360*u.deg/u.sday))
         
         # sidereal times at greenwich of the events (transit/rise/set)
         # have to convert to hour, or else it won't add to an hourangle
@@ -361,7 +385,8 @@ class Uptime(object) :
         sidereal_t.wrap_at(360*u.deg, inplace=True)
         
         # times of the events
-        t_events = self.midnight_utc + (m_solar_day/(360*u.deg/u.sday))
+        #t_events = self.midnight_utc + (m_solar_day/(360*u.deg/u.sday)).to(u.sday)
+        t_events = self.midnight_utc + m_sidereal.to(u.hour)
         
         # calculate apparent positions at the time of the events
         body = self.body_class(t_events.tt)
@@ -373,14 +398,17 @@ class Uptime(object) :
         H = sidereal_t + self.obs_location.longitude - pos.ra
         
         # calculate altitude of the body for rise/set events
-        alt = body_altitude(pos[1:].dec,self.obs_location.latitude, H[1:]) 
+        alt = v_body_altitude(pos[:,1:].dec,self.obs_location.latitude, H[:,1:]) 
         
         # calculate the corrections
-        dm0 = - (H[0]/(360*u.deg/u.day))
-        dm1 = self._correct_rise_set(alt[0], pos[1].dec,self.obs_location.latitude,H[1])
-        dm2 = self._correct_rise_set(alt[1], pos[2].dec,self.obs_location.latitude,H[2])
+        dm0 = - (H[:,0]/(360*u.deg/u.day))
+        dm1 = self._correct_rise_set(alt[:,0], pos[:,1].dec,self.obs_location.latitude,H[:,1])
+        dm2 = self._correct_rise_set(alt[:,1], pos[:,2].dec,self.obs_location.latitude,H[:,2])
         
-        self._correction_m = u.Quantity([dm0,dm1,dm2]).to(u.day)
+        self._correction_m = u.Quantity(np.array( m_sidereal.shape, dtype=m_sidereal.dtype), unit=u.day)
+        self._correction_m[:,0] = dm0
+        self._correction_m[:,1] = dm1
+        self._correction_m[:,2] = dm2 
         return self._correction_m
         
     def accurate(self) : 
@@ -398,7 +426,7 @@ class Uptime(object) :
     def approximate_daylength(self): 
         times = self.approximate()
         
-        daylength = times[2] - times[1]
+        daylength = times[:,2] - times[:,1]
         # note: np.choose strips off units.
         # we're messing with the daylength because if the rise or set time was on
         # the previous/next UTC day, then 1 day was added/subtracted. The effect
@@ -409,6 +437,6 @@ class Uptime(object) :
         
     def accurate_daylength(self) : 
         times = self.accurate()
-        daylength = times[2] - times[1]
-        daylength = (daylength<0*u.sday, [daylength, daylength+1*u.sday])
-        return daylength
+        daylength = times[:,2] - times[:,1]
+        daylength = np.choose(daylength<0*u.sday, [daylength, daylength+1*u.sday])
+        return daylength * u.sday

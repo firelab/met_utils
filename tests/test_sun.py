@@ -168,9 +168,9 @@ class TestUptime(unittest.TestCase) :
         """check calculation of approximate event times"""
         approx = self.up.approximate()
         
-        self.assertLess(np.abs(approx[0] - 0.81965 * u.sday), 1*u.s)
-        self.assertLess(np.abs(approx[1] - 0.51817 * u.sday), 1*u.s)
-        self.assertLess(np.abs(approx[2] - 0.12113 * u.sday), 1*u.s)
+        self.assertLess(np.abs(approx[0,0] - 0.81965 * u.sday), 1*u.s)
+        self.assertLess(np.abs(approx[0,1] - 0.51817 * u.sday), 1*u.s)
+        self.assertLess(np.abs(approx[0,2] - 0.12113 * u.sday), 1*u.s)
         
     def test_corrections(self) : 
         """check calculation of corrections to approximate event times"""
@@ -181,12 +181,33 @@ class TestUptime(unittest.TestCase) :
         self.up.body_class = Ex15aVenus_pt2
         cor = self.up.correction()
         
-        self.assertLess(np.abs(cor[0] - 0.00015*u.day), 1*u.s)
-        self.assertLess(np.abs(cor[1] - (-0.00051 * u.day)), 1*u.s)
-        self.assertLess(np.abs(cor[2] - 0.00017 * u.day), 1*u.s)
+        self.assertLess(np.abs(cor[0,0] - 0.00015*u.day), 1*u.s)
+        self.assertLess(np.abs(cor[0,1] - (-0.00051 * u.day)), 1*u.s)
+        self.assertLess(np.abs(cor[0,2] - 0.00017 * u.day), 1*u.s)
         
     def test_approx_daylength(self) : 
         """check calculation of daylength"""
         approx_daylength = (0.12113 - 0.51817 + 1) * u.sday
         
         self.assertLess(np.abs(self.up.approximate_daylength() - approx_daylength), 1*u.s)
+        
+    def test_accurate_daylength(self) : 
+        """check accurate calculation of daylength"""
+        # force calculation of approximate event times.
+        approx = self.up.approximate() 
+        
+        # change "body" object to object giving interpolated ephemeris
+        self.up.body_class = Ex15aVenus_pt2
+
+        accurate_daylength = ( (0.12113+0.00017) - (0.51817+(-0.00051)) + 1) * u.sday
+        self.assertLess(np.abs(self.up.accurate_daylength() - accurate_daylength), 1*u.s)
+        
+    def test_uptime_multi_location(self) : 
+        """check that uptime handles instantiation with an array of locations"""
+        lats = np.arange(-80, 81, 5) * u.deg
+        lons = np.zeros( (len(lats),))
+        locs = c.EarthLocation.from_geodetic(lons, lats)
+        
+        up = sun.Uptime(sun.SunPosition, t.Time('2014-01-01'), locs)
+        x = up.accurate()
+        self.assertTrue(np.all(x.shape == (len(lats),3) ))
