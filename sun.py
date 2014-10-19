@@ -134,12 +134,12 @@ def v_body_altitude(dec, obs_lat, hour_angle) :
     loops over the body_altitude function once for each observation latitude.
     """
     if obs_lat.size > 1 : 
-        sin_alt = u.Quantity(np.empty(obs_lat.size, dec.size), unit=u.dimensionless_unscaled)
+        alt = u.Quantity(np.empty(dec.shape), unit=u.deg)
         for i in range(obs_lat.size) : 
-            sin_alt[i,:] = body_altitude(dec[i,:], obs_lat[i], hour_angle[i,:])
+            alt[i,:] = body_altitude(dec[i,:], obs_lat[i], hour_angle[i,:])
     else : 
-        sin_alt = body_altitude(dec,obs_lat, hour_angle)
-    return sin_alt
+        alt = body_altitude(dec,obs_lat, hour_angle)
+    return alt
 
     
 def fix_day(time) : 
@@ -297,7 +297,7 @@ class SunPosition(object) :
         
 class Uptime(object) : 
     def __init__(self, body_class, time, obs_location, refraction=(34*u.arcmin)) : 
-        self.obs_location = obs_location
+        self.obs_location = obs_location.reshape( (obs_location.size,) )
         self.refraction = refraction
         self.midnight_utc = day(time, 'utc')
         self.midnight_tt  = day(time, 'tt')
@@ -340,9 +340,6 @@ class Uptime(object) :
         m1 = m0 - delta_t
         m2 = m0 + delta_t
         self._approx_m = u.Quantity( np.empty((m0.size, 3), dtype=m0.dtype), unit=m0.unit)
-        print fix_day(m0)
-        print m0.size
-        print self._approx_m.shape
         self._approx_m[:,0] = fix_day(m0)
         self._approx_m[:,1] = fix_day(m1)
         self._approx_m[:,2] = fix_day(m2)
@@ -375,8 +372,6 @@ class Uptime(object) :
         #m_solar_day = (self.approximate()*1.0027379093604878) * (u.day/u.sday)
         m_sidereal = self.approximate()
         m_solar_day = c.Angle(m_sidereal*(360.985647 * u.deg/u.sday))
-        print self.midnight_utc
-        print repr(m_solar_day/(360*u.deg/u.sday))
         
         # sidereal times at greenwich of the events (transit/rise/set)
         # have to convert to hour, or else it won't add to an hourangle
@@ -386,26 +381,33 @@ class Uptime(object) :
         
         # times of the events
         #t_events = self.midnight_utc + (m_solar_day/(360*u.deg/u.sday)).to(u.sday)
-        t_events = self.midnight_utc + m_sidereal.to(u.hour)
+        t_events = self.midnight_utc + 1.0027379093604878 * m_sidereal.reshape( (m_sidereal.size,) )
         
         # calculate apparent positions at the time of the events
         body = self.body_class(t_events.tt)
         pos = body.get_apparent_position()
+        ra = pos.ra.reshape( m_sidereal.shape)
+        dec = pos.dec.reshape( m_sidereal.shape)
         
         # calculate local hour angle of the body
         # changed sign on longitude because formula in book expects
         # longitudes to be numbered positive westward.
-        H = sidereal_t + self.obs_location.longitude - pos.ra
+        if self.obs_location.size > 1 :
+            H = u.Quantity( np.empty( m_sidereal.shape, dtype=sidereal_t.dtype),unit=sidereal_t.unit) 
+            for i in range(self.obs_location.size) : 
+                H[i,:] = sidereal_t[i,:] + self.obs_location.longitude[i] - ra[i,:]
+        else : 
+            H = sidereal_t + self.obs_location.longitude - ra
         
         # calculate altitude of the body for rise/set events
-        alt = v_body_altitude(pos[:,1:].dec,self.obs_location.latitude, H[:,1:]) 
+        alt = v_body_altitude(dec[:,1:],self.obs_location.latitude, H[:,1:]) 
         
         # calculate the corrections
         dm0 = - (H[:,0]/(360*u.deg/u.day))
-        dm1 = self._correct_rise_set(alt[:,0], pos[:,1].dec,self.obs_location.latitude,H[:,1])
-        dm2 = self._correct_rise_set(alt[:,1], pos[:,2].dec,self.obs_location.latitude,H[:,2])
+        dm1 = self._correct_rise_set(alt[:,0], dec[:,1],self.obs_location.latitude,H[:,1])
+        dm2 = self._correct_rise_set(alt[:,1], dec[:,2],self.obs_location.latitude,H[:,2])
         
-        self._correction_m = u.Quantity(np.array( m_sidereal.shape, dtype=m_sidereal.dtype), unit=u.day)
+        self._correction_m = u.Quantity(np.empty( m_sidereal.shape, dtype=m_sidereal.dtype), unit=u.day)
         self._correction_m[:,0] = dm0
         self._correction_m[:,1] = dm1
         self._correction_m[:,2] = dm2 

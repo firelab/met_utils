@@ -204,10 +204,10 @@ class TestUptime(unittest.TestCase) :
         
     def test_uptime_multi_location(self) : 
         """check that uptime handles instantiation with an array of locations"""
-        lats = np.arange(-80, 81, 5) * u.deg
+        lats = np.arange(-65, 66, 5) * u.deg
         lons = np.zeros( (len(lats),))
         locs = c.EarthLocation.from_geodetic(lons, lats)
         
         up = sun.Uptime(sun.SunPosition, t.Time('2014-01-01'), locs)
         x = up.accurate()
-        self.assertTrue(np.all(x.shape == (len(lats),3) ))
+        self.assertTrue(np.all(x.shape == (lats.size,3) ))
