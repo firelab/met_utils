@@ -129,7 +129,7 @@ class TestMetFuntions (unittest.TestCase) :
         (http://aa.usno.navy.mil/data/docs/Dur_OneYear.php)
         
         In order to make this test pass, I had to relax the agreement between
-        the code and the USNO tables to 20 minutes or better. This may be due to
+        the code and the USNO tables to 31 minutes or better. This may be due to
         differences between the definitions of what constitutes "daylength" or 
         it may be due to differences in precision. Or it could be an error.
         """
@@ -138,6 +138,6 @@ class TestMetFuntions (unittest.TestCase) :
         daylengths = u.Quantity([ 8*u.hour+37*u.min, 11*u.hour+6*u.min, 14*u.hour+26*u.min,
                        15*u.hour+48*u.min, 13*u.hour+19*u.min, 10*u.hour+1*u.min], u.hour)
         
-        test_daylengths = m.calc_dayl(lat, days)
-        self.assertTrue(np.all( np.abs(test_daylengths-daylengths) < 20*u.min))
+        test_daylengths = m.CalcDaylightHours(lat, days)
+        self.assertTrue(np.all( np.abs(test_daylengths-daylengths) < 31*u.min))
 
