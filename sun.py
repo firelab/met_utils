@@ -368,32 +368,32 @@ class Uptime(object) :
         # scale m such that it represents the same fraction of a solar day that 
         # it represented in a sidereal day. Because a solar day is longer,
         # the fraction of the day will also be longer.
-        # also change units.
-        #m_solar_day = (self.approximate()*1.0027379093604878) * (u.day/u.sday)
-        m_sidereal = self.approximate()
-        m_solar_day = c.Angle(m_sidereal*(360.985647 * u.deg/u.sday))
+        #m_solar_ang = (self.approximate()*1.0027379093604878) * (u.day/u.sday)
+        # note that changing the units from sday to day introduces a one degree error
+        m_solar_day = self.approximate() * 1.0027379093604878
+        m_solar_ang = c.Angle(m_solar_day*(360 * u.deg/u.sday))
         
         # sidereal times at greenwich of the events (transit/rise/set)
         # have to convert to hour, or else it won't add to an hourangle
-        #sidereal_t = self.sidereal_greenwich + c.Angle(m_solar_day.to(u.hour))
-        sidereal_t = self.sidereal_greenwich + m_solar_day
+        #sidereal_t = self.sidereal_greenwich + c.Angle(m_solar_ang.to(u.hour))
+        sidereal_t = self.sidereal_greenwich + m_solar_ang
         sidereal_t.wrap_at(360*u.deg, inplace=True)
         
         # times of the events
-        #t_events = self.midnight_utc + (m_solar_day/(360*u.deg/u.sday)).to(u.sday)
-        t_events = self.midnight_utc + 1.0027379093604878 * m_sidereal.reshape( (m_sidereal.size,) )
+        #t_events = self.midnight_utc + (m_solar_ang/(360*u.deg/u.sday)).to(u.sday)
+        t_events = self.midnight_utc +  m_solar_day.reshape( (m_solar_day.size,) )
         
         # calculate apparent positions at the time of the events
         body = self.body_class(t_events.tt)
         pos = body.get_apparent_position()
-        ra = pos.ra.reshape( m_sidereal.shape)
-        dec = pos.dec.reshape( m_sidereal.shape)
+        ra = pos.ra.reshape( m_solar_day.shape)
+        dec = pos.dec.reshape( m_solar_day.shape)
         
         # calculate local hour angle of the body
         # changed sign on longitude because formula in book expects
         # longitudes to be numbered positive westward.
         if self.obs_location.size > 1 :
-            H = u.Quantity( np.empty( m_sidereal.shape, dtype=sidereal_t.dtype),unit=sidereal_t.unit) 
+            H = u.Quantity( np.empty( m_solar_day.shape, dtype=sidereal_t.dtype),unit=sidereal_t.unit) 
             for i in range(self.obs_location.size) : 
                 H[i,:] = sidereal_t[i,:] + self.obs_location.longitude[i] - ra[i,:]
         else : 
@@ -407,7 +407,7 @@ class Uptime(object) :
         dm1 = self._correct_rise_set(alt[:,0], dec[:,1],self.obs_location.latitude,H[:,1])
         dm2 = self._correct_rise_set(alt[:,1], dec[:,2],self.obs_location.latitude,H[:,2])
         
-        self._correction_m = u.Quantity(np.empty( m_sidereal.shape, dtype=m_sidereal.dtype), unit=u.day)
+        self._correction_m = u.Quantity(np.empty( m_solar_day.shape, dtype=m_solar_day.dtype), unit=u.day)
         self._correction_m[:,0] = dm0
         self._correction_m[:,1] = dm1
         self._correction_m[:,2] = dm2 
