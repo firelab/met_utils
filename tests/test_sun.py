@@ -211,6 +211,8 @@ class TestUptime(unittest.TestCase) :
         up = sun.Uptime(sun.SunPosition, t.Time('2014-01-01'), locs)
         x = up.accurate()
         self.assertTrue(np.all(x.shape == (lats.size,3) ))
+        y = up.accurate_daylength()
+        self.assertTrue(y.size == locs.size)
         
     def test_missoula_daylength(self) : 
         """check that daylight times match naval observatory values for missoula
@@ -279,6 +281,6 @@ class TestUptime(unittest.TestCase) :
             up = sun.Uptime(sun.SunPosition, days[i], tiksi)
             test_daylengths[i] = up.accurate_daylength()
             
-        self.assertTrue(np.all(np.abs(test_daylengths-daylengths)<9*u.min))
+        self.assertTrue(np.all(np.abs(test_daylengths-daylengths)<3*u.min))
     
     

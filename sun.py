@@ -356,10 +356,10 @@ class Uptime(object) :
         
         # the above equation is bogus for the case where the sun never rises or 
         # sets. Set the correction to zero for these cases
-        delta_m[approx[:,2]==approx[:,1]] = 0 
+        delta_m[np.abs(approx[:,2]-approx[:,1])<1*u.s] = 0 
         return delta_m
 
-    def _calc_event_body_params(self, offsets) : 
+    def _calc_event_body_params(self, offsets, obs) : 
         """calculates the declination, hour angle, and altitude of the body at event times"""
         m_solar_ang = c.Angle(offsets*(360 * u.deg/u.sday))
         
@@ -382,15 +382,16 @@ class Uptime(object) :
         # calculate local hour angle of the body
         # changed sign on longitude because formula in book expects
         # longitudes to be numbered positive westward.
-        if self.obs_location.size > 1 :
-            H = u.Quantity( np.empty( offsets.shape, dtype=sidereal_t.dtype),unit=sidereal_t.unit) 
-            for i in range(self.obs_location.size) : 
-                H[i,:] = sidereal_t[i,:] + self.obs_location.longitude[i] - ra[i,:]
+        n_locs = m_solar_ang.shape[0]
+        if n_locs > 1 :
+            H = u.Quantity( np.empty( m_solar_ang.shape, dtype=sidereal_t.dtype),unit=sidereal_t.unit) 
+            for i in range(n_locs) : 
+                H[i,:] = sidereal_t[i,:] + obs.longitude[i] - ra[i,:]
         else : 
-            H = sidereal_t + self.obs_location.longitude - ra
+            H = sidereal_t + obs.longitude - ra
         
         # calculate altitude of the body for rise/set events
-        alt = v_body_altitude(dec[:,1:],self.obs_location.latitude, H[:,1:])
+        alt = v_body_altitude(dec[:,1:],obs.latitude, H[:,1:])
         return (dec, H, alt) 
                 
     
@@ -412,7 +413,7 @@ class Uptime(object) :
         # note that changing the units from sday to day introduces a one degree error
         m_solar_day = self.approximate() * 1.0027379093604878
         
-        dec, H, alt = self._calc_event_body_params(m_solar_day)
+        dec, H, alt = self._calc_event_body_params(m_solar_day, self.obs_location)
         
         # calculate the corrections
         dm0 = - (H[:,0]/(360*u.deg/u.day))
@@ -454,9 +455,9 @@ class Uptime(object) :
         daylength = np.choose(daylength<(0*u.min), [daylength, daylength+1*u.sday]) * u.sday
         
         # any "always up" or "always down"?
-        no_rise_set = timearray[:,2] == timearray[:,1]
+        no_rise_set = np.abs(timearray[:,2]-timearray[:,1]) < 1*u.s
         if np.any(no_rise_set) : 
-            dec, H, alt = self._calc_event_body_params(timearray[no_rise_set,:])
+            dec, H, alt = self._calc_event_body_params(timearray[no_rise_set,:], self.obs_location[no_rise_set])
             daylength[no_rise_set] = np.choose(alt[:,1]>self.h0, [0, 1]) * u.day        
         
         return daylength
