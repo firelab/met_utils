@@ -327,7 +327,7 @@ class Uptime(object) :
         # eq 15.1
         cos_H0 = ((np.sin(self.h0) - (np.sin(lat)*np.sin(dec)))/
                   (np.cos(lat)*np.cos(dec)))
-        np.clip(cos_H0, -1, 1)
+        np.clip(cos_H0, -1, 1, cos_H0)
         H0 = np.arccos(cos_H0)
         
         # eq 15.2
@@ -345,14 +345,54 @@ class Uptime(object) :
         self._approx_m[:,2] = fix_day(m2)
         return self._approx_m
     
+
     def _correct_rise_set(self, h, dec, lat, hour_angle):
         """implements correction to rise/set time offsets
         
         Unnumbered equation, p. 103
         """
+        approx = self.approximate()
         delta_m = (h-self.h0) / ((360*u.deg/u.day)*np.cos(dec)*np.cos(lat)*np.sin(hour_angle))
-        return delta_m
         
+        # the above equation is bogus for the case where the sun never rises or 
+        # sets. Set the correction to zero for these cases
+        delta_m[approx[:,2]==approx[:,1]] = 0 
+        return delta_m
+
+    def _calc_event_body_params(self, offsets) : 
+        """calculates the declination, hour angle, and altitude of the body at event times"""
+        m_solar_ang = c.Angle(offsets*(360 * u.deg/u.sday))
+        
+        # sidereal times at greenwich of the events (transit/rise/set)
+        # have to convert to hour, or else it won't add to an hourangle
+        #sidereal_t = self.sidereal_greenwich + c.Angle(m_solar_ang.to(u.hour))
+        sidereal_t = self.sidereal_greenwich + m_solar_ang
+        sidereal_t.wrap_at(360*u.deg, inplace=True)
+        
+        # times of the events
+        #t_events = self.midnight_utc + (m_solar_ang/(360*u.deg/u.sday)).to(u.sday)
+        t_events = self.midnight_utc +  offsets.reshape( (offsets.size,) )
+        
+        # calculate apparent positions at the time of the events
+        body = self.body_class(t_events.tt)
+        pos = body.get_apparent_position()
+        ra = pos.ra.reshape( m_solar_ang.shape)
+        dec = pos.dec.reshape( m_solar_ang.shape)
+        
+        # calculate local hour angle of the body
+        # changed sign on longitude because formula in book expects
+        # longitudes to be numbered positive westward.
+        if self.obs_location.size > 1 :
+            H = u.Quantity( np.empty( offsets.shape, dtype=sidereal_t.dtype),unit=sidereal_t.unit) 
+            for i in range(self.obs_location.size) : 
+                H[i,:] = sidereal_t[i,:] + self.obs_location.longitude[i] - ra[i,:]
+        else : 
+            H = sidereal_t + self.obs_location.longitude - ra
+        
+        # calculate altitude of the body for rise/set events
+        alt = v_body_altitude(dec[:,1:],self.obs_location.latitude, H[:,1:])
+        return (dec, H, alt) 
+                
     
     def correction(self) :
         """Calculates a correction to transit/rise/set times
@@ -371,36 +411,8 @@ class Uptime(object) :
         #m_solar_ang = (self.approximate()*1.0027379093604878) * (u.day/u.sday)
         # note that changing the units from sday to day introduces a one degree error
         m_solar_day = self.approximate() * 1.0027379093604878
-        m_solar_ang = c.Angle(m_solar_day*(360 * u.deg/u.sday))
         
-        # sidereal times at greenwich of the events (transit/rise/set)
-        # have to convert to hour, or else it won't add to an hourangle
-        #sidereal_t = self.sidereal_greenwich + c.Angle(m_solar_ang.to(u.hour))
-        sidereal_t = self.sidereal_greenwich + m_solar_ang
-        sidereal_t.wrap_at(360*u.deg, inplace=True)
-        
-        # times of the events
-        #t_events = self.midnight_utc + (m_solar_ang/(360*u.deg/u.sday)).to(u.sday)
-        t_events = self.midnight_utc +  m_solar_day.reshape( (m_solar_day.size,) )
-        
-        # calculate apparent positions at the time of the events
-        body = self.body_class(t_events.tt)
-        pos = body.get_apparent_position()
-        ra = pos.ra.reshape( m_solar_day.shape)
-        dec = pos.dec.reshape( m_solar_day.shape)
-        
-        # calculate local hour angle of the body
-        # changed sign on longitude because formula in book expects
-        # longitudes to be numbered positive westward.
-        if self.obs_location.size > 1 :
-            H = u.Quantity( np.empty( m_solar_day.shape, dtype=sidereal_t.dtype),unit=sidereal_t.unit) 
-            for i in range(self.obs_location.size) : 
-                H[i,:] = sidereal_t[i,:] + self.obs_location.longitude[i] - ra[i,:]
-        else : 
-            H = sidereal_t + self.obs_location.longitude - ra
-        
-        # calculate altitude of the body for rise/set events
-        alt = v_body_altitude(dec[:,1:],self.obs_location.latitude, H[:,1:]) 
+        dec, H, alt = self._calc_event_body_params(m_solar_day)
         
         # calculate the corrections
         dm0 = - (H[:,0]/(360*u.deg/u.day))
@@ -425,20 +437,34 @@ class Uptime(object) :
         """returns actual timestamps for the events instead of offsets within the day"""
         return self.midnight_utc + self.accurate()
         
+    def _daylength_processor(self, timearray) : 
+        """computes daylength 
+        
+        Performs a simple subtraction of sunset-sunrise time. There are three 
+        potential cases:
+            * if positive, we have the daylength, stop
+            * if negative, we have the negative of nightlength, add one.
+            * if zero, the sun is either always up or always down. compute the
+              solar altitude to find out.
+        """
+        # sunset - sunrise
+        daylength = timearray[:,2] - timearray[:,1]
+
+        # handle negative case
+        daylength = np.choose(daylength<(0*u.min), [daylength, daylength+1*u.sday]) * u.sday
+        
+        # any "always up" or "always down"?
+        no_rise_set = timearray[:,2] == timearray[:,1]
+        if np.any(no_rise_set) : 
+            dec, H, alt = self._calc_event_body_params(timearray[no_rise_set,:])
+            daylength[no_rise_set] = np.choose(alt[:,1]>self.h0, [0, 1]) * u.day        
+        
+        return daylength
+        
     def approximate_daylength(self): 
         times = self.approximate()
-        
-        daylength = times[:,2] - times[:,1]
-        # note: np.choose strips off units.
-        # we're messing with the daylength because if the rise or set time was on
-        # the previous/next UTC day, then 1 day was added/subtracted. The effect
-        # will be that the sun sets before it rises, and hence a blind subtraction
-        # yields the negative of the nightlength. Add one to get daylength
-        daylength = np.choose(daylength<0*u.sday, [daylength, daylength+1*u.sday])
-        return daylength * u.sday
+        return self._daylength_processor(times)
         
     def accurate_daylength(self) : 
         times = self.accurate()
-        daylength = times[:,2] - times[:,1]
-        daylength = np.choose(daylength<0*u.sday, [daylength, daylength+1*u.sday])
-        return daylength * u.sday
+        return self._daylength_processor(times)

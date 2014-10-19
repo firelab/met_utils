@@ -204,10 +204,81 @@ class TestUptime(unittest.TestCase) :
         
     def test_uptime_multi_location(self) : 
         """check that uptime handles instantiation with an array of locations"""
-        lats = np.arange(-65, 66, 5) * u.deg
+        lats = np.arange(-80, 81, 5) * u.deg
         lons = np.zeros( (len(lats),))
         locs = c.EarthLocation.from_geodetic(lons, lats)
         
         up = sun.Uptime(sun.SunPosition, t.Time('2014-01-01'), locs)
         x = up.accurate()
         self.assertTrue(np.all(x.shape == (lats.size,3) ))
+        
+    def test_missoula_daylength(self) : 
+        """check that daylight times match naval observatory values for missoula
+        
+        Data here are taken from the US Naval Observatory's webpage for 
+        Missoula, MT in the year 2013.  These data reflect the length of time
+        that any part of the solar disc is above the horizon.
+        (http://aa.usno.navy.mil/data/docs/Dur_OneYear.php)
+        """
+        days = t.Time( [ '2013-01-01', '2013-03-01', '2013-05-01', '2013-07-01',
+                         '2013-09-01', '2013-11-01'])
+        daylengths = u.Quantity( 
+             [ 8*u.hour+37*u.min, 11*u.hour+7*u.min, 14*u.hour+26*u.min,
+               15*u.hour+48*u.min, 13*u.hour+19*u.min, 10*u.hour+1*u.min],
+               unit = u.hour)
+        missoula = c.EarthLocation.from_geodetic('-114d0m', '46d52m')
+        test_daylengths = u.Quantity( np.empty(daylengths.shape), unit=u.hour)
+        for i in range(daylengths.size) : 
+            up = sun.Uptime(sun.SunPosition, days[i], missoula)
+            test_daylengths[i] = up.accurate_daylength()
+            
+            
+        self.assertTrue(np.all(np.abs(test_daylengths-daylengths)<3.5*u.min))
+        
+    def test_prudhoe_bay_daylength(self) : 
+        """check that daylight times match naval observatory values for prudhoe bay, AK
+        
+        Data here are taken from the US Naval Observatory's webpage for 
+        Prudhoe Bay, AK in the year 2013.  These data reflect the length of time
+        that any part of the solar disc is above the horizon. This test includes
+        time where the sun is up for the entire day as well as time where it is
+        down for the entire day.
+        (http://aa.usno.navy.mil/data/docs/Dur_OneYear.php)
+        """
+        days = t.Time( [ '2013-01-01', '2013-03-01', '2013-05-01', '2013-07-01',
+                         '2013-09-01', '2013-11-01'])
+        daylengths = u.Quantity(
+            [ 0*u.min, 9*u.hour+35*u.min, 19*u.hour+11*u.min, 24*u.hour, 
+              15*u.hour+25*u.min, 6*u.hour+14*u.min], unit=u.hour)
+        prudhoe = c.EarthLocation.from_geodetic('-148d22m','70d15m')
+        test_daylengths = u.Quantity( np.empty(daylengths.shape), unit=u.hour)
+        for i in range(daylengths.size) : 
+            up = sun.Uptime(sun.SunPosition, days[i], prudhoe)
+            test_daylengths[i] = up.accurate_daylength()
+            
+        self.assertTrue(np.all(np.abs(test_daylengths-daylengths)<9*u.min))
+        
+    def test_tiksi_siberia_daylength(self) : 
+        """check that daylight times match naval observatory values for Tiksi, Siberia
+    
+        Data here are taken from the US Naval Observatory's webpage for 
+        Tiksi, Siberia in the year 2013.  These data reflect the length of time
+        that any part of the solar disc is above the horizon. This test includes
+        time where the sun is up for the entire day as well as time where it is
+        down for the entire day, and covers the case of "east-of-the-prime-meridian"
+        (http://aa.usno.navy.mil/data/docs/Dur_OneYear.php)
+        """
+        days = t.Time( [ '2013-01-01', '2013-03-01', '2013-05-01', '2013-07-01',
+                         '2013-09-01', '2013-11-01'])
+        daylengths = u.Quantity(
+            [ 0*u.min, 9*u.hour+20*u.min, 20*u.hour+3*u.min, 24*u.hour, 
+              15*u.hour+46*u.min, 5*u.hour+45*u.min], unit=u.hour)
+        tiksi = c.EarthLocation.from_geodetic('128d52m','71d39m')
+        test_daylengths = u.Quantity( np.empty(daylengths.shape), unit=u.hour)
+        for i in range(daylengths.size) : 
+            up = sun.Uptime(sun.SunPosition, days[i], tiksi)
+            test_daylengths[i] = up.accurate_daylength()
+            
+        self.assertTrue(np.all(np.abs(test_daylengths-daylengths)<9*u.min))
+    
+    
