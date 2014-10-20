@@ -356,7 +356,7 @@ class Uptime(object) :
         
         # the above equation is bogus for the case where the sun never rises or 
         # sets. Set the correction to zero for these cases
-        delta_m[np.abs(approx[:,2]-approx[:,1])<1*u.s] = 0 
+        delta_m[np.abs(approx[:,2]-approx[:,1])<1*u.min] = 0 
         return delta_m
 
     def _calc_event_body_params(self, offsets, obs) : 
@@ -422,7 +422,7 @@ class Uptime(object) :
         
         self._correction_m = u.Quantity(np.empty( m_solar_day.shape, dtype=m_solar_day.dtype), unit=u.day)
         self._correction_m[:,0] = dm0
-        self._correction_m[:,1] = dm1
+        self._correction_m[:,1] = dm1 
         self._correction_m[:,2] = dm2 
         return self._correction_m
         
@@ -455,10 +455,14 @@ class Uptime(object) :
         daylength = np.choose(daylength<(0*u.min), [daylength, daylength+1*u.sday]) * u.sday
         
         # any "always up" or "always down"?
-        no_rise_set = np.abs(timearray[:,2]-timearray[:,1]) < 1*u.s
+        no_rise_set = np.abs(timearray[:,2]-timearray[:,1]) < 1*u.min
+        
+        # hardcode sunrise == transit == sunset
+        timearray[no_rise_set,1] = timearray[no_rise_set,0]
+        timearray[no_rise_set,2] = timearray[no_rise_set,0]
         if np.any(no_rise_set) : 
             dec, H, alt = self._calc_event_body_params(timearray[no_rise_set,:], self.obs_location[no_rise_set])
-            daylength[no_rise_set] = np.choose(alt[:,1]>self.h0, [0, 1]) * u.day        
+            daylength[no_rise_set] = np.choose(alt[:,1]>0*u.deg, [0, 1]) * u.day        
         
         return daylength
         
