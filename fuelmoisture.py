@@ -121,7 +121,8 @@ def oneten_nfdrs (Temp, RH, SOW):
        Temp = Temp.to(iu.deg_F, u.temperature())	
     emc = eqmc(tfact + Temp, hfact * RH)    
     return (1.03*emc, 1.28*emc)
-    
+
+SOLAR_CONST = 1353 * u.W / u.m**2    
 def oneten_ofdm(temp, rh, srad, fm_100) : 
     """one and ten hour fuel moisture using the Oklahoma fire danger model
     
@@ -153,8 +154,8 @@ def oneten_ofdm(temp, rh, srad, fm_100) :
         International Journal of Wildland Fire 11 (4): 183–91.
     """
     
-    fuel_temp = (srad/1353)*(13.9 * u.m**2 * u.deg_C /u.W) + temp
-    fuel_rh   = (1 - (0.25*u.m**2/u.W)*(srad/1353))*rh
+    fuel_temp = (srad/SOLAR_CONST)*(13.9 * u.deg_C ) + temp
+    fuel_rh   = (1 - 0.25*(srad/SOLAR_CONST))*rh
     
     fm_basis = 0.8 * eqmc(fuel_temp, fuel_rh) 
     fm_10 = fm_basis + 0.2 * fm_100

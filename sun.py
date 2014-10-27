@@ -144,7 +144,7 @@ def v_body_altitude(dec, obs_lat, hour_angle) :
     
 def fix_day(time) : 
     """bounds the fractional day to [0,1]"""
-    return time % (1*time.unit)
+    return time % (1*time.unit)    
     
 
 class Ecliptic(object) : 
@@ -473,3 +473,4 @@ class Uptime(object) :
     def accurate_daylength(self) : 
         times = self.accurate()
         return self._daylength_processor(times)
+                
