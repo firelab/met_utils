@@ -161,5 +161,32 @@ class TestDiurnalLocalTimeStatistics(unittest.TestCase) :
         first_point = self.test_data[0,12:16].min()
         self.assertEqual(first_point, x.min()[0])
         
+    def test_ref_val(self) : 
+        """checks that we pick the correct reference value for all lon points."""
+        x = fm.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons)
+        lsf = qi.LongitudeSamplingFunction(24*u.hour/self.timestep, 13*u.hour)
+        i_lons = lsf.get_index(self.lons) + 4
+        
+        result = np.empty( (len(i_lons),) )
+        for i in range(len(i_lons)) : 
+            result[i] = self.test_data[i, i_lons[i]]
+        
+        self.assertTrue(np.all(result==x.ref_val()))
+        
+    def test_preceeding_day(self): 
+        """tests to ensure the correct data is returned"""
+        x = fm.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons)
+        lsf = qi.LongitudeSamplingFunction(24*u.hour/self.timestep, 13*u.hour)
+        i_lons = lsf.get_index(self.lons) 
+        
+        result = np.empty( (len(i_lons),4) )
+        for i in range(len(i_lons)) : 
+            result[i,:] = self.test_data[i, i_lons[i]+1:i_lons[i]+5]
+        
+        self.assertTrue(np.all(result==x.get_preceeding_day()))
+
+                
 
         

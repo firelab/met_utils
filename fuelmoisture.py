@@ -525,3 +525,44 @@ class DiurnalLocalTimeStatistics (object) :
         
     def min(self): 
         return self.buffer_masked.min(axis=self.time_axis)
+        
+    def ref_val(self) : 
+        """returns the variable's instantaneous value at the reference time
+        
+        The time sample selected depends on the longitude of the cell. 
+        """
+        result = np.empty( (len(self.i_ref),), dtype=self.source.dtype )
+        
+        # 2nd day is the "current day".
+        i_ref_buf = self.i_ref + self.diurnal_window
+        for i in range(len(i_ref_buf)) : 
+            result[i] = self.buffer[i, i_ref_buf[i]]
+        return result
+    
+    def get_preceeding_day(self) : 
+        """returns the record of instantaneous values for the day prior to the reference time
+        
+        Essentially this just copies all the unmasked values from the buffer to 
+        the result array. The result is a square array with the time dimension
+        containing 24 hours of samples. Samples which are after the local reference
+        time, or which are more than 24 hours prior to the reference time have been 
+        filtered out. Without knowledge of the UTC timestamp of the sample corresponding 
+        to the local reference time, it is not possible to recover the UTC 
+        time of any particular cell.
+        """
+        j = [0]*2
+        i_result = [ slice(None, None, None) ] * 2
+        i_lon = not self.time_axis
+        i_time = self.time_axis
+        resultshape = list(self.buffer.shape)
+        resultshape[self.time_axis] = self.diurnal_window
+        result = np.empty( resultshape, dtype = self.source.dtype)        
+        
+        for i in range(len(self.i_ref)) : 
+            timeslice = slice(self.i_ref[i] + 1, self.i_ref[i] + self.diurnal_window + 1)
+            j[i_lon] = i
+            j[i_time] = timeslice
+            i_result[i_lon] = i
+            result[i_result] = self.buffer[j]
+            
+        return result
