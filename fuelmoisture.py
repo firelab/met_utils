@@ -24,6 +24,7 @@ from astropy.units import imperial as iu
 import image_chain as ic
 import numpy as np
 import numpy.ma as ma
+import qty_index as qi
 
 ## \fn eqmc (self,Temp,RH)
 ## \brief Calculate the equilibrium moisture content
@@ -378,3 +379,148 @@ class ThousandHourFM (ic.IndividualStateOperator) :
 	
 	# store output
 	self._output_arrays['fm_1000'] = fm_1000
+	
+class DiurnalLocalTimeStatistics (object) : 
+    """Computes 24-hour summary statistics based on local time.
+    
+    Given a (possibly global) dataset referred to a non-local time like UTC,
+    compute 24 hour statistics using local time and assign the result to a
+    UTC date. The statistics are referenced to a common local time for all cells. 
+    The time associated with the statistic is the UTC date on which the common
+    local time falls.
+    
+    For example, if the reference time is 1300 local, this means the statistics 
+    are computed for 13 hours after the local midnight. The offset between local
+    midnight and UTC midnight is computed using the longitude of the cell, not 
+    the time zone in which the cell resides.
+    
+    Statistics computed for a particular UTC date are drawn from data taken
+    in the 24-hour window prior to the reference local time on that 
+    UTC date.
+    
+    The data source is expected to be a numpy array-like with one axis being 
+    time. Instances of this class may be configured to compute statistics 
+    directly on the data source (i.e., when the data reside in memory), or 
+    an internal buffer may be used (i.e., when the data are on disk). Index 0
+    of the time dimension is assumed to represent UTC midnight of the start
+    of the dataset. Samples along the time axis are assumed to be equally
+    spaced. Diurnal statistics may be computed for any integer number of UTC
+    days from the start of the dataset.
+    
+    The class provides a "next()" method to compute the statistics for the
+    next day. This is provided both for convenience and for efficiency when 
+    the buffer mode is used. Random access mode will always have to load two
+    days worth of data from the file, whereas sequential access allows 
+    a single day's data to be read. Because the previous day's data are always
+    required, the computation of statistics for "day 0" is not allowed. 
+    """
+    def __init__(self, source, time_axis, timestep, lons, ref_time=13*u.hour, sequential=True):
+        """Wraps a data source to use as the basis of daily statistics.
+        
+        The caller must specify a numpy array-like data source, the index of the
+        time axis of that data source, the timestep and longitude for each cell.
+        This class assumes a 1D "compressed axes" storage pattern, where the 
+        longitude of every cell must be individually specified in a parallel
+        array.
+        
+        Sequential access is assumed unless otherwise specified. The local 
+        reference time for statistics is 1300 hours.
+        """
+        self.source = source
+        self.diurnal_window = ((24*u.hour)/timestep).astype(np.int)
+        self.time_axis = time_axis
+        self.timestep = timestep
+        self.lons = lons
+        self.ref_time = ref_time
+        self.buffer = None
+        self.cur_day = None
+        self.i_buf_template = ( slice(None,None,None), ) * len(source.shape)
+
+        self.__init_lons()
+        
+        # if user wants sequential access, initialize buffer
+        if sequential : 
+            self.__init_buffer()
+            
+
+    def __init_buffer(self) : 
+        self.load_day(1)
+        self.buffer_masked = ma.array(self.buffer, mask=self.mask)
+        self.cur_day = 2  
+        
+    def __init_lons(self) :
+        """precomputes indices into 2-day buffer"""
+        daily_samples = (24.*u.hour ) / self.timestep
+        tmp = qi.LongitudeSamplingFunction(daily_samples, self.ref_time)
+        self.i_ref = tmp.get_index(self.lons)   
+        
+        # create a mask array
+        mask_shape = np.copy(self.source.shape)
+        mask_shape[self.time_axis] = 2*self.diurnal_window
+        self.mask = np.ones( mask_shape, dtype=np.bool) # mask everything
+        
+        # now enable the samples used in the calculation
+        it = np.nditer(self.mask, flags=['multi_index'], op_flags=['readwrite'])
+        while not it.finished  :
+            # this only works because we assume 1d compressed spatial + time
+            i_time = it.multi_index[self.time_axis]
+            i_lon  = it.multi_index[not self.time_axis]
+            
+            it[0] = not ((i_time > self.i_ref[i_lon]) and (i_time <= (self.i_ref[i_lon] +  self.diurnal_window)))
+            it.iternext()
+
+    
+    def _get_src_data(self,time_start,time_end):
+        """given a time slice, return the source data"""
+        timeslice = slice(int(time_start), int(time_end))
+        i_buf = list(self.i_buf_template)
+        i_buf[self.time_axis] = timeslice
+        return self.source[i_buf]
+                
+    def load_day(self, day) : 
+        """loads the specified day's data from the source into the buffer
+        
+        This method always loads 2 days worth of data: the previous day and 
+        the current day. The size of 1 day's data is "self.diurnal_window" 
+        """
+        start = (day-1) * self.diurnal_window
+        end = start + (2 * self.diurnal_window)
+        self.buffer = self._get_src_data(start,end)
+
+        
+    def next(self) : 
+        """loads the next day's data into the buffer
+        
+        Shifts the "current day's" data into the "yesterday" position in the
+        buffer, then increments the current day counter and loads the new data
+        in.
+        
+        This method shifts "buffer" instead of "buffer_masked" because it needs
+        to move the data without moving the mask.
+        """
+        # construct the "yesterday" index
+        yesterday_slice = slice(0,self.diurnal_window)
+        i_yesterday = np.copy(self.i_buf_template)
+        i_yesterday[self.time_axis] = yesterday_slice
+
+        # construct the "today" index
+        today_slice = slice(self.diurnal_window, 2*self.diurnal_window)
+        i_today     = np.copy(self.i_buf_template)
+        i_today[self.time_axis] = today_slice
+        
+        self.buffer[i_yesterday] = self.buffer[i_today]
+        
+        start = self.cur_day * self.diurnal_window
+        end   = start + self.diurnal_window
+        self.buffer[i_today] = self._get_src_data(start,end)
+        
+        self.cur_day += 1
+        
+    def mean(self) : 
+        return self.buffer_masked.mean(axis=self.time_axis)
+        
+    def max(self) : 
+        return self.buffer_masked.max(axis=self.time_axis)
+        
+    def min(self): 
+        return self.buffer_masked.min(axis=self.time_axis)
