@@ -445,7 +445,6 @@ class DiurnalLocalTimeStatistics (object) :
 
     def __init_buffer(self) : 
         self.load_day(1)
-        self.buffer_masked = ma.array(self.buffer, mask=self.mask)
         self.cur_day = 2  
         
     def __init_lons(self) :
@@ -475,17 +474,19 @@ class DiurnalLocalTimeStatistics (object) :
         timeslice = slice(int(time_start), int(time_end))
         i_buf = list(self.i_buf_template)
         i_buf[self.time_axis] = timeslice
-        return self.source[i_buf]
+        return np.copy(self.source[i_buf])
                 
     def load_day(self, day) : 
         """loads the specified day's data from the source into the buffer
         
         This method always loads 2 days worth of data: the previous day and 
-        the current day. The size of 1 day's data is "self.diurnal_window" 
+        the current day. The size of 1 day's data is "self.diurnal_window"
+        Loading the first day (day==0) is always illegal. 
         """
         start = (day-1) * self.diurnal_window
         end = start + (2 * self.diurnal_window)
         self.buffer = self._get_src_data(start,end)
+        self.buffer_masked = ma.array(self.buffer, mask=self.mask)
 
         
     def next(self) : 
@@ -500,12 +501,12 @@ class DiurnalLocalTimeStatistics (object) :
         """
         # construct the "yesterday" index
         yesterday_slice = slice(0,self.diurnal_window)
-        i_yesterday = np.copy(self.i_buf_template)
+        i_yesterday = list(self.i_buf_template)
         i_yesterday[self.time_axis] = yesterday_slice
 
         # construct the "today" index
         today_slice = slice(self.diurnal_window, 2*self.diurnal_window)
-        i_today     = np.copy(self.i_buf_template)
+        i_today     = list(self.i_buf_template)
         i_today[self.time_axis] = today_slice
         
         self.buffer[i_yesterday] = self.buffer[i_today]

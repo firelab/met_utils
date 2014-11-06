@@ -117,3 +117,49 @@ class TestDiurnalLocalTimeStatistics(unittest.TestCase) :
         self.assertEqual(first_point, x.max()[0])
         first_point = self.test_data[0,4:8].max()
         self.assertEqual(first_point, x.max()[0])
+        
+    def test_next(self) : 
+        """test that next() advances to the next day"""
+        x = fm.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons)
+        x.next()
+        self.assertEqual(x.cur_day, 3)
+        self.assertTrue(np.all(x.buffer[0,:]==self.test_data[0,4:12]))
+
+    def test_nonsequential_load(self) : 
+        """checks that loading days nonsequentially works OK"""
+        x = fm.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons, sequential=False)
+        self.assertEqual(None, x.cur_day)
+        self.assertEqual(None, x.buffer)
+        x.load_day(3)
+        self.assertTrue(np.all(x.buffer[0,:]==self.test_data[0,8:16]))
+        x.load_day(1)
+        self.assertTrue(np.all(x.buffer[0,:]==self.test_data[0,:8]))
+        
+    def test_nonsequential_stats(self) : 
+        """checks that we can compute statistics after loading nonsequentially"""
+        x = fm.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons, sequential=False)
+        x.load_day(3)
+        
+        # mean
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).mean()
+        self.assertEqual(first_point, x.mean()[0])
+        first_point = self.test_data[0,12:16].mean()
+        self.assertEqual(first_point, x.mean()[0])
+        
+        # max
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).max()
+        self.assertEqual(first_point, x.max()[0])
+        first_point = self.test_data[0,12:16].max()
+        self.assertEqual(first_point, x.max()[0])
+        
+        # min
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).min()
+        self.assertEqual(first_point, x.min()[0])
+        first_point = self.test_data[0,12:16].min()
+        self.assertEqual(first_point, x.min()[0])
+        
+
+        
