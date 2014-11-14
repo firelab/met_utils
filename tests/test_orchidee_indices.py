@@ -40,6 +40,10 @@ class TestForcingDataset (unittest.TestCase) :
         for i in range(360):
             nav_lon[i,:] = lon_template
             
+        # fake data array
+        qair = fake_ds.createVariable('Qair', np.float32, dimensions=('tstep','land'))
+        qair[:] = np.arange(160).reshape(16,10)
+            
         
         self.fd._nc_forcing = fake_ds
         
@@ -55,8 +59,8 @@ class TestForcingDataset (unittest.TestCase) :
     def test_get_axes(self) : 
         """we convert to the correct cells?"""
         ca = self.fd.get_land_axes()
-        self.assertTrue(np.all(ca.getIndices(0)   == (0,0) ))
-        self.assertTrue(np.all(ca.getIndices(720) == (1,0) ))
+        self.assertTrue(np.all(ca.getIndices(1)   == (0,0) ))
+        self.assertTrue(np.all(ca.getIndices(721) == (1,0) ))
 
     def test_get_indices(self): 
         """checks that the indices are presented in the expected format"""
@@ -67,8 +71,8 @@ class TestForcingDataset (unittest.TestCase) :
         # in all, ten cells should have been set to 5
         self.assertEqual(test_grid.sum(), 5*10)
         
-        # land[0] (19584) == (27,144)
-        self.assertEqual(test_grid[27,144], 5)
+        # land[0] (19584_fortran index) == (27,143)
+        self.assertEqual(test_grid[27,143], 5)
         
     def test_indices_ncdf(self) : 
         """check that we can use indices on netcdf variables"""
@@ -80,7 +84,7 @@ class TestForcingDataset (unittest.TestCase) :
         test_lon = nav_lon[xy]
         self.assertEqual(len(test_lon), 10)
         
-        self.assertEqual(nav_lon[27,144], test_lon[0])
+        self.assertEqual(nav_lon[27,143], test_lon[0])
         
     def test_longitude(self) : 
         """check that longitudes are retrieved correctly and have units"""
@@ -92,9 +96,19 @@ class TestForcingDataset (unittest.TestCase) :
         test_lons = nav_lon[xy] * u.deg
         
         self.assertTrue(np.all(test_lons == lons))
+        self.assertEqual(len(forcing.dimensions['land']),lons.size)
+        self.assertEqual(len(lons.shape), 1) # 1d
         
     def test_get_timestep(self) : 
         """check that we calculate the timestep correctly"""
         timestep = self.fd.get_timestep()
         self.assertEqual(timestep, 21600*u.s)
+        
+    def test_register_variable(self) : 
+        """check that we can register variables."""
+        forcing = self.fd.get_forcing()
+        v = forcing.variables['Qair']
+        self.assertEqual(0, v.dimensions.index('tstep'))
+        self.assertTrue(np.all(v.shape == (16,10)))
+        self.fd.register_variable('Qair')
         

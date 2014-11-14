@@ -5,6 +5,7 @@ import fuelmoisture as fm
 import qty_index as qi
 import numpy as np
 import numpy.ma as ma
+import netCDF4 as nc
 
 class TestFuelMoisture(unittest.TestCase) : 
     def test_eqmc_units(self):
@@ -186,6 +187,40 @@ class TestDiurnalLocalTimeStatistics(unittest.TestCase) :
             result[i,:] = self.test_data[i, i_lons[i]+1:i_lons[i]+5]
         
         self.assertTrue(np.all(result==x.get_preceeding_day()))
+        
+    def test_netcdf_source(self) : 
+        """test to ensure we can use netcdf variable as source"""
+        d = nc.Dataset('test.nc', 'w', diskless=True)
+        
+        d.createDimension('time',16)
+        d.createDimension('land',6)
+        
+        v = d.createVariable('test', self.test_data.dtype, dimensions=('land','time'))
+        v[:] = self.test_data
+        
+        
+        x = fm.DiurnalLocalTimeStatistics(v, self.time_axis, 
+                                          self.timestep, self.lons)
+
+        x.load_day(3)
+        
+        # mean
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).mean()
+        self.assertEqual(first_point, x.mean()[0])
+        first_point = self.test_data[0,12:16].mean()
+        self.assertEqual(first_point, x.mean()[0])
+        
+        # max
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).max()
+        self.assertEqual(first_point, x.max()[0])
+        first_point = self.test_data[0,12:16].max()
+        self.assertEqual(first_point, x.max()[0])
+        
+        # min
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).min()
+        self.assertEqual(first_point, x.min()[0])
+        first_point = self.test_data[0,12:16].min()
+        self.assertEqual(first_point, x.min()[0])
 
                 
 

@@ -9,8 +9,10 @@ import trend
 import qty_index as q
 import astropy.units as u
 import astropy.coordinates as c
+import astropy.time as t
 import numpy as np
 import fuelmoisture as fm
+import met_functions as met
 
 class ForcingDataset ( agg.NetCDFTemplate ) :
     """Class manages the computation of indices from ORCHIDEE forcing data.
@@ -86,6 +88,7 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
         self._buffers[varname] = fm.DiurnalLocalTimeStatistics(
             forcing.variables[varname], time_axis,
             self.get_timestep(), self.get_longitudes())
+        return self._buffers[varname]
 
     def next(self) :
         """advance all of the registered variables to the next day"""
@@ -102,3 +105,45 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
             self._nc_forcing.close()
             
         super(ForcingDataset,self).close()
+        
+def indices_year(y, forcing_template, out_template) : 
+    """Processes one year.
+    
+    Runs the calculation of indices for one year given an orchidee forcing
+    file for that year."""
+    
+    # figure out filenames and open dataset.
+    forcing_file = forcing_template % (y,)
+    out_file = out_template % (y,)
+    ds = ForcingDataset(forcing_file, out_file)
+    
+    # register required variables so they are tracked
+    qair = ds.register_variable("Qair")
+#    tair = ds.register_variable("Tair")
+#    rainf = ds.register_variable("Rainf")
+#    swdown = ds.register_variable("SWdown")
+    
+    # setup netcdf dimensions in output file
+    ds.copyDimension("land")
+    ds.copyDimension("y")
+    ds.createDimension("days", 365)
+    
+    # create netcdf variables to hold indices in output file
+    daylength = ds.createVariable("daylength", ("days","y"), np.float32)
+    daylength.title = "Day Length"
+    daylength.units = "hours"
+    
+    # base time
+    time_start = t.Time('%04d:001'%y, format='yday', scale='utc')
+    
+    # loop over days
+    while qair.cur_day < 366 : 
+        i_day = qair.cur_day - 1 
+        
+        # calculate daylengths, store as hours
+        daylength[i_day,:] = (ds.get_daylength_by_lat(time_start + (i_day*u.day)) / (1*u.hour))
+        
+        # load next day for all variables
+        ds.next()
+    
+    ds.close()

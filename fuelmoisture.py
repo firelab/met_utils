@@ -427,7 +427,7 @@ class DiurnalLocalTimeStatistics (object) :
         reference time for statistics is 1300 hours.
         """
         self.source = source
-        self.diurnal_window = ((24*u.hour)/timestep).astype(np.int)
+        self.diurnal_window = ((24*u.hour)/timestep).to(u.dimensionless_unscaled).astype(np.int)
         self.time_axis = time_axis
         self.timestep = timestep
         self.lons = lons
@@ -457,7 +457,6 @@ class DiurnalLocalTimeStatistics (object) :
         mask_shape = np.copy(self.source.shape)
         mask_shape[self.time_axis] = 2*self.diurnal_window
         self.mask = np.ones( mask_shape, dtype=np.bool) # mask everything
-        
         # now enable the samples used in the calculation
         it = np.nditer(self.mask, flags=['multi_index'], op_flags=['readwrite'])
         while not it.finished  :
