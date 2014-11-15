@@ -13,6 +13,7 @@ import astropy.time as t
 import numpy as np
 import fuelmoisture as fm
 import met_functions as met
+import sun
 
 class ForcingDataset ( agg.NetCDFTemplate ) :
     """Class manages the computation of indices from ORCHIDEE forcing data.
@@ -85,7 +86,7 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
         forcing = self.get_forcing()
         ncvar = forcing.variables[varname]
         time_axis = ncvar.dimensions.index('tstep')
-        self._buffers[varname] = fm.DiurnalLocalTimeStatistics(
+        self._buffers[varname] = q.DiurnalLocalTimeStatistics(
             forcing.variables[varname], time_axis,
             self.get_timestep(), self.get_longitudes())
         return self._buffers[varname]
@@ -119,29 +120,53 @@ def indices_year(y, forcing_template, out_template) :
     
     # register required variables so they are tracked
     qair = ds.register_variable("Qair")
-#    tair = ds.register_variable("Tair")
+    tair = ds.register_variable("Tair")
+    pres = ds.register_variable("Psurf")
 #    rainf = ds.register_variable("Rainf")
 #    swdown = ds.register_variable("SWdown")
     
     # setup netcdf dimensions in output file
     ds.copyDimension("land")
     ds.copyDimension("y")
+    ds.copyDimension("tstep")
     ds.createDimension("days", 365)
     
     # create netcdf variables to hold indices in output file
-    daylength = ds.createVariable("daylength", ("days","y"), np.float32)
+    daylength = ds.create_variable("daylength", ("days","y"), np.float32)
     daylength.title = "Day Length"
     daylength.units = "hours"
     
+    rh = ds.create_variable("rh", ("tstep","land"), np.float32)
+    rh.title = "Relative Humidity"
+    rh.units = "percent"
+    
+    rh_max = ds.create_variable("rh_max", ("days","land"), np.float32)
+    rh_max.title = "Maximum RH" 
+    rh_max.units = "percent"
+    
+    rh_min = ds.create_variable("rh_min", ("days","land"), np.float32)
+    rh_min.title = "Minimum RH"
+    rh_min.units = "percent"
+    
     # base time
-    time_start = t.Time('%04d:001'%y, format='yday', scale='utc')
+    time_start = t.Time('%04d:001'%y, format='yday', scale='ut1')
+    if ( (y < 1960) or (y > 2013) ) :
+        time_start.delta_ut1_utc=0
     
     # loop over days
-    while qair.cur_day < 366 : 
+    # the cur_day property is the index of the next day to read in from the file.
+    # since the netcdf file is 0-based, indices are [0, 365)
+    while qair.cur_day < 365 : 
         i_day = qair.cur_day - 1 
+        print qair.cur_day
         
         # calculate daylengths, store as hours
-        daylength[i_day,:] = (ds.get_daylength_by_lat(time_start + (i_day*u.day)) / (1*u.hour))
+        day = time_start + (i_day*u.day)
+        if (hasattr(time_start,"delta_ut1_utc")) : 
+            day.delta_ut1_utc = time_start.delta_ut1_utc
+        daylength[i_day,:] = (ds.get_daylength_by_lat(day)).to(u.hour)
+        
+        # calculate RH
         
         # load next day for all variables
         ds.next()
