@@ -196,3 +196,19 @@ class TestDiurnalLocalTimeStatistics(unittest.TestCase) :
         self.assertEqual(first_point, x.min()[0])
         first_point = self.test_data[0,12:16].min()
         self.assertEqual(first_point, x.min()[0])
+        
+    def test_template_create(self) :
+        """make sure we can create new instances from a template."""
+        x = q.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons)
+        
+        v = np.ones( self.test_data.shape)                                                                    
+        y = q.DiurnalLocalTimeStatistics(v, template=x) 
+        self.assertEqual(self.time_axis, y.time_axis)
+        self.assertEqual(self.timestep,  y.timestep)
+        self.assertTrue(np.all(self.lons == y.lons))
+        self.assertTrue(np.all(x.i_ref == y.i_ref))
+        self.assertTrue(np.all(x.mask == y.mask))
+        self.assertTrue(np.all(x.source == self.test_data))
+        self.assertTrue(np.all(y.source == v))
+

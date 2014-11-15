@@ -69,7 +69,8 @@ class DiurnalLocalTimeStatistics (object) :
     a single day's data to be read. Because the previous day's data are always
     required, the computation of statistics for "day 0" is not allowed. 
     """
-    def __init__(self, source, time_axis, timestep, lons, ref_time=13*u.hour, sequential=True):
+    def __init__(self, source, time_axis=None, timestep=None, lons=None, 
+                  template=None, ref_time=13*u.hour, sequential=True):
         """Wraps a data source to use as the basis of daily statistics.
         
         The caller must specify a numpy array-like data source, the index of the
@@ -78,20 +79,38 @@ class DiurnalLocalTimeStatistics (object) :
         longitude of every cell must be individually specified in a parallel
         array.
         
+        Everything but the source numpy array-like may be specified using a 
+        template, which is just a previously created DiurnalLocalTimeStatistics
+        object. This can save some expensive computations when initializing the 
+        mask. However, everything about the source must be the same as the 
+        source in the template (shape, longitudes of each cell, etc.) 
+        
         Sequential access is assumed unless otherwise specified. The local 
         reference time for statistics is 1300 hours.
         """
         self.source = source
-        self.diurnal_window = ((24*u.hour)/timestep).to(u.dimensionless_unscaled).astype(np.int)
-        self.time_axis = time_axis
-        self.timestep = timestep
-        self.lons = lons
-        self.ref_time = ref_time
+        self.i_buf_template = ( slice(None,None,None), ) * len(source.shape)
         self.buffer = None
         self.cur_day = None
-        self.i_buf_template = ( slice(None,None,None), ) * len(source.shape)
 
-        self.__init_lons()
+        # we either init most things off of a template, or we compute them 
+        # from scratch
+        if template == None : 
+            self.diurnal_window = ((24*u.hour)/timestep).to(u.dimensionless_unscaled).astype(np.int)
+            self.lons = lons
+            self.time_axis = time_axis
+            self.timestep = timestep
+            self.ref_time = ref_time
+            self.__init_lons()
+        else : 
+            self.diurnal_window = template.diurnal_window
+            self.lons = template.lons
+            self.time_axis = template.time_axis
+            self.timestep = template.timestep
+            self.ref_time = template.ref_time
+            # don't call __init_lons(). Too expensive. Just copy.
+            self.i_ref = template.i_ref
+            self.mask  = template.mask
         
         # if user wants sequential access, initialize buffer
         if sequential : 
@@ -223,3 +242,38 @@ class DiurnalLocalTimeStatistics (object) :
             result[i_result] = self.buffer[j]
             
         return result   
+        
+class DLTSGroup (object) : 
+    """manages a group of related DiurnalLocalTimeStatistics objects
+    
+    Consolidates the management of DLTS objects.
+    """
+    def __init__(self) : 
+        self.group = {} 
+        
+    def add(self, name, dlts) : 
+        if len(self.group)  == 0 : 
+            self.template = dlts
+        self.group[name] = dlts
+        
+    def next(self) : 
+        for k,v in self.group : 
+            v.next() 
+            
+    def create(self, name, source) : 
+        """creates a new dlts object, using the template
+        
+        This method avoids the need to call the computationally expensive 
+        DiurnalLocalTimeStatistics.__init_lons() method when successive variables
+        have exactly the same geospatial sampling. After adding at least one 
+        DLTS object, you may call this method to use the first DLTS object 
+        as a template. You must have called add() at least once prior to calling
+        this function.
+        """
+        self.group[name] = DiurnalLocalTimeStatistics(source,template=self.template)
+        return self.group[name]
+    
+    def get(self, name) : 
+        return self.group[name]
+        
+        
