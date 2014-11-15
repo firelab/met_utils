@@ -97,6 +97,26 @@ class TestSunPosition(unittest.TestCase)  :
         coord = self.pos.get_apparent_position()
         self.assertLess(np.abs(coord.ra.wrap_at(180*u.deg) - c.Angle(-161.61917*u.deg)), 0.5e-5*u.deg)
         self.assertLess(np.abs(coord.dec - c.Angle(-7.78507*u.deg)), 0.5e-5*u.deg)
+        
+    def test_day_fn(self):  
+        """tests whether the day function preserves delta_ut1_utc attribute"""
+        test_time = t.Time('1901:001', format='yday')
+        test_time.delta_ut1_utc = 0
+        result_time = sun.day(test_time, 'ut1')
+        self.assertTrue(hasattr(result_time, "delta_ut1_utc"))
+        self.assertEqual(test_time.delta_ut1_utc, result_time.delta_ut1_utc)
+        
+    @unittest.expectedFailure    
+    def test_early_sidereal_time(self) : 
+        """tests when we can calculate sidereal time"""
+        test_time = t.Time('1901:001', format='yday')
+        test_time.delta_ut1_utc = 0
+        test_time.sidereal_time('apparent','greenwich')
+        test_time2 = test_time + (1*u.day)
+        self.assertTrue(hasattr(test_time2, "delta_ut1_utc"))
+        test_time2.sidereal_time('apparent','greenwich')
+        
+        
 
         
 class Ex15aVenus_pt1 (object) :         
