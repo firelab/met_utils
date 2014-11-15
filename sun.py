@@ -31,7 +31,10 @@ def day(d, scale) :
     """
     date = d.datetime.date()
     d1 = dt.datetime(date.year,date.month,date.day)
-    return time.Time(d1,scale=scale)
+    t = time.Time(d1,scale=scale)
+    if hasattr(d, "delta_ut1_utc") :
+        t.delta_ut1_utc = d.delta_ut1_utc
+    return t
 
 def geometric_mean_longitude(t) : 
     """geometric mean longitude of the sun referred to mean equinox of the date
