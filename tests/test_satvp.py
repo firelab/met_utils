@@ -42,6 +42,20 @@ class TestSaturationVapor (unittest.TestCase) :
         """Sanity check"""
         self.assertEqual(len(satvp.vp_calcs), 14)
         
+    def test_kelvin(self) : 
+        """check to ensure that we can calculate vp using Kelvin temps"""
+        for method in satvp.vp_calcs.keys() :
+            calc = satvp.vp_calcs[method]
+            
+            # only reason to explicitly convert to kPa is to ensure the precision 
+            # of the comparison is expressed in kPa.
+            test_vp = calc.calc_vp(self.temp.to(u.K, equivalencies=u.temperature())).to(u.kPa)
+
+            for i in range(len(test_vp)): 
+                self.assertTrue((self.vp[i]-test_vp[i]) < 0.1*u.kPa,
+                msg= "Failure on {}.calc_vp({:3.1}) == {:3.1} (got {:3.1})".format(method, self.temp[i],self.vp[i],test_vp[i]))
+
+        
                
 #suite = unittest.TestLoader().loadTestsFromTestCase(TestSaturationVapor)
 #unittest.TextTestRunner(verbosity=2).run(suite)

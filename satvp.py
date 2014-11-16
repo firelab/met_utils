@@ -68,6 +68,10 @@ class MagnusExp (MagnusApproximation) :
            -------
            c : array : units = Pa
         """
+        # explicit conversion is necessary because units library
+        # doesn't handle automatic conversion between temperature 
+        # units.
+        temp = temp.to(u.deg_C, equivalencies=u.temperature())
         return self._A * np.exp((self._B * temp) / (self._C + temp))
         
     def calc_tdew(self, vp) :
@@ -98,6 +102,7 @@ class Magnus10 (MagnusApproximation) :
            -------
            c : array : units = Pa
         """
+        temp = temp.to(u.deg_C, equivalencies=u.temperature())
         return self._A * (10 ** ((self._B * temp) / (self._C + temp)))
         
     def calc_tdew(self, vp) : 
