@@ -4,6 +4,11 @@ import numpy.ma as ma
 import astropy.units as u
 import astropy.coordinates as c
 
+# cannot compare "unit" objects to python's None. 
+# creating an "unspecified" fundamental unit to signify that 
+# no unit object has been specified
+unspecified_u = u.def_unit("unspecified")
+
 class SamplingFunction (object) : 
     __metaclass__ = ABCMeta
     
@@ -70,7 +75,8 @@ class DiurnalLocalTimeStatistics (object) :
     required, the computation of statistics for "day 0" is not allowed. 
     """
     def __init__(self, source, time_axis=None, timestep=None, lons=None, 
-                  template=None, ref_time=13*u.hour, sequential=True):
+                  template=None, ref_time=13*u.hour, sequential=True, 
+                  unit=unspecified_u):
         """Wraps a data source to use as the basis of daily statistics.
         
         The caller must specify a numpy array-like data source, the index of the
@@ -92,6 +98,7 @@ class DiurnalLocalTimeStatistics (object) :
         self.i_buf_template = ( slice(None,None,None), ) * len(source.shape)
         self.buffer = None
         self.cur_day = None
+        self.unit = unit        
 
         # we either init most things off of a template, or we compute them 
         # from scratch
@@ -114,10 +121,10 @@ class DiurnalLocalTimeStatistics (object) :
         
         # if user wants sequential access, initialize buffer
         if sequential : 
-            self.__init_buffer()
+            self._init_buffer()
             
 
-    def __init_buffer(self) : 
+    def _init_buffer(self) : 
         self.load_day(1)
         self.cur_day = 2  
         
@@ -161,7 +168,7 @@ class DiurnalLocalTimeStatistics (object) :
         self.buffer_masked = ma.array(self.buffer, mask=self.mask)
 
         
-    def next(self, data=None) : 
+    def next(self) : 
         """loads the next day's data into the buffer
         
         Shifts the "current day's" data into the "yesterday" position in the
@@ -183,13 +190,9 @@ class DiurnalLocalTimeStatistics (object) :
         
         self.buffer[i_yesterday] = self.buffer[i_today]
         
-        if data == None : 
-            start = self.cur_day * self.diurnal_window
-            end   = start + self.diurnal_window
-            self.buffer[i_today] = self._get_src_data(start,end)
-        else : 
-            # if the user provided the next day's data, use it.
-            self.buffer[i_today] = data
+        start = self.cur_day * self.diurnal_window
+        end   = start + self.diurnal_window
+        self.buffer[i_today] = self._get_src_data(start,end)
         
         self.cur_day += 1
         
@@ -207,12 +210,19 @@ class DiurnalLocalTimeStatistics (object) :
         
         The time sample selected depends on the longitude of the cell. 
         """
+        # a vector the size of the compressed geospatial axis
         result = np.empty( (len(self.i_ref),), dtype=self.source.dtype )
         
         # 2nd day is the "current day".
         i_ref_buf = self.i_ref + self.diurnal_window
+        i_buf = [0,0]
+        i_time = self.time_axis
+        i_land = not i_time
         for i in range(len(i_ref_buf)) : 
-            result[i] = self.buffer[i, i_ref_buf[i]]
+            # buffer is 2D: timesteps x geospatial
+            i_buf[i_time] = i_ref_buf[i]
+            i_buf[i_land] = i
+            result[i] = self.buffer[i_buf]
         return result
     
     def get_preceeding_day(self) : 
@@ -240,9 +250,79 @@ class DiurnalLocalTimeStatistics (object) :
             j[i_time] = timeslice
             i_result[i_lon] = i
             result[i_result] = self.buffer[j]
-            
-        return result   
         
+        # set the units of the data if we know them    
+        if self.unit != unspecified_u : 
+            result = result * self.unit
+            
+        return result 
+        
+    def get_utc_day(self, current_day=True) : 
+        """Get the raw data for the current UTC day
+        
+        If you want the previous utc day's data, set current_day to False.
+        """
+        # construct the "today" index
+        start = 0 
+        if current_day : 
+            start = self.diurnal_window
+        day_slice = slice(start, start + self.diurnal_window)
+        i_day     = list(self.i_buf_template)
+        i_day[self.time_axis] = day_slice 
+
+        result = self.buffer[i_day]
+        
+        # set the units of the data if we know them
+        if self.unit != unspecified_u : 
+            result = result * self.unit
+            
+        return result
+        
+    def get_buffer(self) : 
+        """returns the buffer as a quantity object, if possible"""
+        result = self.buffer
+        if self.unit != unspecified_u : 
+            result = result * self.unit
+        return result
+        
+    def store_day(self, destination, current=True) : 
+        """stores one day of data from buffer to destination buffer
+        
+        destination is assumed to have same shape as source."""
+        day = self.cur_day - 1 # index of "today"
+        if not current : 
+            day -= 1 #index of yesterday
+        
+        start = day * self.diurnal_window
+        end = start + self.diurnal_window
+        timeslice = slice(int(start), int(end))
+        i_buf = list(self.i_buf_template)
+        i_buf[self.time_axis] = timeslice
+        
+        destination[i_buf] = self.get_utc_day(current)
+
+        
+
+class ComputedSourceDLTS (DiurnalLocalTimeStatistics) : 
+    """A diurnal local time statistics class where the source is computed
+    
+    This class draws new data from an ever changing source variable. Whereas the
+    parent class assumes the source value has a time axis which covers the
+    entire domain of the simulation (and therefore we need to load in one day 
+    at a time by advancing the index along the time axis), this class assumes 
+    the source contains exactly one day's data. The user is responsible for 
+    writing new values to the source before calling the next() method.
+    
+    You are explicitly allowed to assign new numpy arrays to the source attribute.
+    The source you initially provide should have two days of data, in order to 
+    initialize the internal 2-day buffer. The source buffer should be one day 
+    big by the time you call next().
+    """
+    def _get_src_data(self, start, end) : 
+        return self.source
+        
+           
+                        
 class DLTSGroup (object) : 
     """manages a group of related DiurnalLocalTimeStatistics objects
     
@@ -250,17 +330,20 @@ class DLTSGroup (object) :
     """
     def __init__(self) : 
         self.group = {} 
+        self.template = None
         
     def add(self, name, dlts) : 
+        """adds a named, pre-created DLTS object to the group."""
         if len(self.group)  == 0 : 
             self.template = dlts
         self.group[name] = dlts
         
     def next(self) : 
-        for k,v in self.group : 
-            v.next() 
+        """call next() method for each object in group"""
+        for k in self.group : 
+            self.group[k].next() 
             
-    def create(self, name, source) : 
+    def create(self, name, source, unit) : 
         """creates a new dlts object, using the template
         
         This method avoids the need to call the computationally expensive 
@@ -270,10 +353,22 @@ class DLTSGroup (object) :
         as a template. You must have called add() at least once prior to calling
         this function.
         """
-        self.group[name] = DiurnalLocalTimeStatistics(source,template=self.template)
+        self.group[name] = DiurnalLocalTimeStatistics(source,
+                template=self.template, unit=unit)
+        return self.group[name]
+        
+    def create_computed(self, name, source, unit) : 
+        """creates a computed dlts object using the template"""
+        self.group[name] = ComputedSourceDLTS(source, 
+            template=self.template, unit=unit)
         return self.group[name]
     
     def get(self, name) : 
+        """fetches a named dlts object"""
         return self.group[name]
+        
+    def template_ready(self) :
+        """are we ready to create objects using a template?""" 
+        return self.template != None
         
         

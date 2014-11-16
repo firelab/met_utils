@@ -150,6 +150,24 @@ class TestDiurnalLocalTimeStatistics(unittest.TestCase) :
         
         self.assertTrue(np.all(result==x.ref_val()))
         
+        # now switch test data so that there's more land points than time points
+        # and the axes are reversed
+        self.test_data = np.arange(100*16).reshape(16,100)
+        self.time_axis = 0
+        self.lons = np.arange(100)*2*u.deg - 135*u.deg
+        x = q.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons)
+        lsf = q.LongitudeSamplingFunction(24*u.hour/self.timestep, 13*u.hour)
+        i_lons = lsf.get_index(self.lons) + 4
+        
+        result = np.empty( (len(i_lons),) )
+        for i in range(len(i_lons)) : 
+            result[i] = self.test_data[i_lons[i],i]
+        
+        self.assertTrue(np.all(result==x.ref_val()))
+ 
+        
+        
     def test_preceeding_day(self): 
         """tests to ensure the correct data is returned"""
         x = q.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
@@ -211,4 +229,19 @@ class TestDiurnalLocalTimeStatistics(unittest.TestCase) :
         self.assertTrue(np.all(x.mask == y.mask))
         self.assertTrue(np.all(x.source == self.test_data))
         self.assertTrue(np.all(y.source == v))
-
+        
+    def test_unit(self) : 
+        """make sure that returned data have correct units attached"""
+        x = q.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons, unit=u.Pa)
+                                          
+        self.assertEqual(x.get_utc_day().unit, u.Pa)
+        self.assertEqual(x.get_preceeding_day().unit, u.Pa)
+        self.assertEqual(x.get_buffer().unit, u.Pa)
+        
+        # repeat for "no units" case
+        x = q.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons)
+        self.assertFalse(hasattr(x.get_utc_day(), "unit"))
+        self.assertFalse(hasattr(x.get_preceeding_day(), "unit"))
+        self.assertFalse(hasattr(x.get_buffer(), "unit"))

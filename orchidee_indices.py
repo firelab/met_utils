@@ -37,7 +37,6 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
         
     def get_xy_indices(self) : 
         if not hasattr(self, "_xy_indices") : 
-            forcing = self.get_forcing()
             ca = self.get_land_axes()
             self._xy_indices = ca.get_grid_indices()
         return self._xy_indices
@@ -78,28 +77,69 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
             self._timestep = (times[1] - times[0])
         return self._timestep
         
-    def register_variable(self, varname) :
-        """adds "varname" to the list of variables to track""" 
+    def get_samples_per_day(self) : 
+        if not hasattr(self, '_spd') :
+            timestep = self.get_timestep()
+            self._spd = ((24*u.hour)/timestep).to(u.dimensionless_unscaled).astype(np.int)
+        return self._spd    
+        
+    def get_buffer_group(self) : 
         if not hasattr(self, "_buffers") : 
-            self._buffers = {} 
+            self._buffers = q.DLTSGroup() 
+        return self._buffers
+        
+    def get_derived_buffers(self) : 
+        if not hasattr(self, "_derived") : 
+            self._derived = q.DLTSGroup()
+            self._derived.template = self._buffers.template
+        return self._derived
+        
+    def register_variable(self, varname, unit) :
+        """adds "varname" to the list of variables to track""" 
+        bufs = self.get_buffer_group()
         
         forcing = self.get_forcing()
         ncvar = forcing.variables[varname]
-        time_axis = ncvar.dimensions.index('tstep')
-        self._buffers[varname] = q.DiurnalLocalTimeStatistics(
-            forcing.variables[varname], time_axis,
-            self.get_timestep(), self.get_longitudes())
-        return self._buffers[varname]
+        if not bufs.template_ready() : 
+            time_axis = ncvar.dimensions.index('tstep')
+            bufs.add(varname, q.DiurnalLocalTimeStatistics(
+                ncvar, time_axis,
+                self.get_timestep(), self.get_longitudes(), unit=unit))
+        else : 
+            bufs.create(varname, ncvar, unit)
+                
+        return bufs.get(varname)
+        
+    def compute_rh(self) : 
+        """Compute RH for the current utc day
+        
+        This calls "next()" on the internal RH object. No need to manage it."""
+        bufs = self.get_buffer_group()
+        derived = self.get_derived_buffers()
+        if "rh" in derived.group : 
+            # one day big
+            p = bufs.get('PSurf').get_utc_day()
+            q = bufs.get('Qair').get_utc_day()
+            t = bufs.get('Tair').get_utc_day()
+            rh = derived.get('rh')
+            rh.source = met.calc_rh_spec_humidity(q,p,t)
+            rh.next()
+        else :
+            # 2 days big
+            p = bufs.get('PSurf').get_buffer()
+            q = bufs.get('Qair').get_buffer()
+            t = bufs.get('Tair').get_buffer()
+            rh = derived.create_computed("rh",met.calc_rh_spec_humidity(q,p,t), 
+                    u.pct)
+            
+        return rh
+            
 
     def next(self) :
         """advance all of the registered variables to the next day"""
-        for key in self._buffers : 
-            self._buffers[key].next()
-        
-    def get_variable(self, varname) :
-        """returns the DiurnalLocalTimeStatistics object associated with the registered varname""" 
-        return self._buffers[varname]
-                
+        bufs = self.get_buffer_group()
+        bufs.next()
+                        
     def close(self) :
         """closes the input and output netCDF files""" 
         if hasattr(self, "_nc_forcing") : 
@@ -119,9 +159,9 @@ def indices_year(y, forcing_template, out_template) :
     ds = ForcingDataset(forcing_file, out_file)
     
     # register required variables so they are tracked
-    qair = ds.register_variable("Qair")
-    tair = ds.register_variable("Tair")
-    pres = ds.register_variable("Psurf")
+    qair = ds.register_variable("Qair", u.dimensionless_unscaled)
+    ds.register_variable("Tair", u.Kelvin)
+    ds.register_variable("PSurf", u.Pa)
 #    rainf = ds.register_variable("Rainf")
 #    swdown = ds.register_variable("SWdown")
     
@@ -148,6 +188,10 @@ def indices_year(y, forcing_template, out_template) :
     rh_min.title = "Minimum RH"
     rh_min.units = "percent"
     
+    rh_afternoon = ds.create_variable("rh_afternoon", ('days', 'land'),np.float32)
+    rh_afternoon.title = "RH in the afternoon"
+    rh_afternoon.units = "percent"
+        
     # base time
     time_start = t.Time('%04d:001'%y, format='yday', scale='ut1')
     if ( (y < 1960) or (y > 2013) ) :
@@ -166,7 +210,16 @@ def indices_year(y, forcing_template, out_template) :
             day.delta_ut1_utc = time_start.delta_ut1_utc
         daylength[i_day,:] = (ds.get_daylength_by_lat(day)).to(u.hour)
         
-        # calculate RH
+        # calculate RH & store
+        rh_dlts = ds.compute_rh()
+        rh_dlts.store_day(rh)
+        rh_max[i_day,:] = rh_dlts.max()
+        rh_min[i_day,:] = rh_dlts.min()
+        rh_afternoon[i_day,:] = rh_dlts.ref_val()
+        
+        # first time through, store the first day's data
+        if i_day == 1 : 
+            rh_dlts.store_day(rh, False)
         
         # load next day for all variables
         ds.next()
