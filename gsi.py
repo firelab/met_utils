@@ -44,6 +44,15 @@ class Normalize (object) :
             
         return scaled_x
                 
+def calc_i_tmin(tmin) : 
+    return __xf_tmin.scale(tmin)
+    
+def calc_i_vpd(vpd) :
+    return 1 - __xf_vpd.scale(vpd)
+    
+def calc_i_photo(photo) :
+    return __xf_photo.scale(photo) 
+                    
 def calc_gsi(tmin, vpd, photo) : 
     """calculate the growing season index
     
@@ -64,9 +73,9 @@ def calc_gsi(tmin, vpd, photo) :
     gsi : array : dimensionless
         growing season index
     """
-    tmin_i = __xf_tmin.scale(tmin)
-    vpd_i  = 1 - __xf_vpd.scale(vpd)
-    photo_i= __xf_photo.scale(photo)
+    tmin_i = calc_i_tmin(tmin)
+    vpd_i  = calc_i_vpd(vpd)
+    photo_i= calc_i_photo(photo)
     return tmin_i * vpd_i * photo_i
 
 # Singleton, module private instances of the scaling relationships for use

@@ -14,6 +14,7 @@ import numpy as np
 import fuelmoisture as fm
 import met_functions as met
 import sun
+import gsi
 
 class ForcingDataset ( agg.NetCDFTemplate ) :
     """Class manages the computation of indices from ORCHIDEE forcing data.
@@ -133,7 +134,15 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
                     u.pct)
             
         return rh
-            
+        
+    def compute_afternoon_vpd(self) :   
+        bufs = self.get_buffer_group()
+        t = bufs.get('Tair').ref_val()
+        q = bufs.get('Qair').ref_val()
+        p = bufs.get('PSurf').ref_val()
+        vp_act = met.calc_vp_spec_humidity(q,p)
+        return met.calc_vpd(t,vp_act)
+      
 
     def next(self) :
         """advance all of the registered variables to the next day"""
@@ -160,7 +169,7 @@ def indices_year(y, forcing_template, out_template) :
     
     # register required variables so they are tracked
     qair = ds.register_variable("Qair", u.dimensionless_unscaled)
-    ds.register_variable("Tair", u.Kelvin)
+    tair = ds.register_variable("Tair", u.Kelvin)
     ds.register_variable("PSurf", u.Pa)
 #    rainf = ds.register_variable("Rainf")
 #    swdown = ds.register_variable("SWdown")
@@ -171,26 +180,54 @@ def indices_year(y, forcing_template, out_template) :
     ds.copyDimension("tstep")
     ds.createDimension("days", 365)
     
+    # copy basic data
+    ds.copyVariable('nav_lat')
+    ds.copyVariable('nav_lon')
+    
     # create netcdf variables to hold indices in output file
     daylength = ds.create_variable("daylength", ("days","y"), np.float32)
     daylength.title = "Day Length"
     daylength.units = "hours"
     
     rh = ds.create_variable("rh", ("tstep","land"), np.float32)
-    rh.title = "Relative Humidity"
+    rh.long_name = "Relative Humidity"
     rh.units = "percent"
     
     rh_max = ds.create_variable("rh_max", ("days","land"), np.float32)
-    rh_max.title = "Maximum RH" 
+    rh_max.long_name = "Maximum RH" 
     rh_max.units = "percent"
     
     rh_min = ds.create_variable("rh_min", ("days","land"), np.float32)
-    rh_min.title = "Minimum RH"
+    rh_min.long_name = "Minimum RH"
     rh_min.units = "percent"
     
     rh_afternoon = ds.create_variable("rh_afternoon", ('days', 'land'),np.float32)
-    rh_afternoon.title = "RH in the afternoon"
+    rh_afternoon.long_name = "RH in the afternoon"
     rh_afternoon.units = "percent"
+    
+    t_min = ds.create_variable("t_min", ('days','land'), np.float32)
+    t_min.long_name("minimum temperature for the 24hours preceeding burning period")
+    t_min.units = "K"
+    
+    t_afternoon = ds.create_variable("t_afternoon", ('days','land'), np.float32)
+    t_afternoon.long_name = "mid-burning-period temperature"
+    t_afternoon.units = "K"
+    
+    i_tmin = ds.create_variable("i_tmin", ('days','land'), np.float32)
+    i_tmin.long_name = "GSI minimum temperature index component"
+    i_tmin.units = 'dimensionless'
+    
+    i_photo = ds.create_variable('i_photo', ('days','land'), np.float32)
+    i_photo.long_name = 'GSI photoperiod index component'
+    i_photo.units = 'dimensionless'
+    
+    i_vpd = ds.create_variable('i_vpd', ('days','land'), np.float32)
+    i_vpd.long_name = 'GSI vapor pressure deficit index component'
+    i_vpd.units = 'dimensionless'
+    
+    i_gsi = ds.create_variable('gsi', ('days','land'), np.float32)
+    i_gsi.long_name = 'GSI Index'
+    i_gsi.units = 'dimensionless'
         
     # base time
     time_start = t.Time('%04d:001'%y, format='yday', scale='ut1')
@@ -210,12 +247,22 @@ def indices_year(y, forcing_template, out_template) :
             day.delta_ut1_utc = time_start.delta_ut1_utc
         daylength[i_day,:] = (ds.get_daylength_by_lat(day)).to(u.hour)
         
+        # pull out/store minimim and afternoon temps
+        t_min[i_day,:] = tair.min()
+        t_afternoon[i_day,:] = tair.ref_val()
+        
         # calculate RH & store
         rh_dlts = ds.compute_rh()
         rh_dlts.store_day(rh)
         rh_max[i_day,:] = rh_dlts.max()
         rh_min[i_day,:] = rh_dlts.min()
         rh_afternoon[i_day,:] = rh_dlts.ref_val()
+        
+        # calculate GSI indices and store
+        i_tmin[i_day,:] = gsi.calc_i_tmin(t_min[tair.min()])
+        i_photo[i_day,:] = gsi.calc_i_photo(daylength[i_day,:])
+        i_vpd[i_day,:] = gsi.calc_i_vpd(ds.compute_afternoon_vpd())
+        i_gsi[i_day,:] = i_tmin[i_day,:] * i_photo[i_day,:] * i_vpd[i_day,:]
         
         # first time through, store the first day's data
         if i_day == 1 : 

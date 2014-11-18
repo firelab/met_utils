@@ -197,13 +197,22 @@ class DiurnalLocalTimeStatistics (object) :
         self.cur_day += 1
         
     def mean(self) : 
-        return self.buffer_masked.mean(axis=self.time_axis)
+        result = self.buffer_masked.mean(axis=self.time_axis)
+        if self.unit != unspecified_u : 
+            result = result * self.unit
+        return result
         
     def max(self) : 
-        return self.buffer_masked.max(axis=self.time_axis)
+        result = self.buffer_masked.max(axis=self.time_axis)
+        if self.unit != unspecified_u :
+            result = result * self.unit
+        return result
         
     def min(self): 
-        return self.buffer_masked.min(axis=self.time_axis)
+        result = self.buffer_masked.min(axis=self.time_axis)
+        if self.unit != unspecified_u : 
+            result = result * self.unit
+        return result
         
     def ref_val(self) : 
         """returns the variable's instantaneous value at the reference time
@@ -223,6 +232,10 @@ class DiurnalLocalTimeStatistics (object) :
             i_buf[i_time] = i_ref_buf[i]
             i_buf[i_land] = i
             result[i] = self.buffer[i_buf]
+            
+        if self.unit != unspecified_u : 
+            result = result * self.unit
+            
         return result
     
     def get_preceeding_day(self) : 
