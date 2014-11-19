@@ -223,19 +223,19 @@ class DiurnalLocalTimeStatistics (object) :
         self.cur_day += 1
         
     def mean(self, unitted=True) : 
-        result = self.buffer_masked.mean(axis=self.time_axis)
+        result = self.buffer_masked.mean(axis=self.time_axis).data
         if unitted and self.unit != unspecified_u : 
             result = result * self.unit
         return result
         
     def max(self, unitted=True) : 
-        result = self.buffer_masked.max(axis=self.time_axis)
+        result = self.buffer_masked.max(axis=self.time_axis).data
         if unitted and self.unit != unspecified_u :
             result = result * self.unit
         return result
         
     def min(self, unitted=True): 
-        result = self.buffer_masked.min(axis=self.time_axis)
+        result = self.buffer_masked.min(axis=self.time_axis).data
         if unitted and self.unit != unspecified_u : 
             result = result * self.unit
         return result

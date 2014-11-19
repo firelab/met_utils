@@ -274,10 +274,9 @@ class TestDiurnalLocalTimeStatistics(unittest.TestCase) :
         self.assertEqual(mx.unit, u.Pa)
         
         # min
-        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).min()
-        self.assertEqual(first_point, x.min()[0])
-        first_point = self.test_data[0,12:16].min()
-        self.assertEqual(first_point, x.min()[0])
+        mn = x.min()
+        self.assertTrue(hasattr(mn, "unit"))
+        self.assertEqual(mn.unit, u.Pa)
         
         
     def test_forego_units(self) : 
