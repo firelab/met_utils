@@ -167,13 +167,14 @@ def indices_year(y, forcing_template, out_template) :
     out_file = out_template % (y,)
     ds = ForcingDataset(forcing_file, out_file)
     
-    # register required variables so they are tracked
+    # register required variables from NetCDF file so they are tracked
     qair = ds.register_variable("Qair", u.dimensionless_unscaled)
     tair = ds.register_variable("Tair", u.Kelvin)
     ds.register_variable("PSurf", u.Pa)
 #    rainf = ds.register_variable("Rainf")
 #    swdown = ds.register_variable("SWdown")
     
+    print "NetCDF variables registered"
     # setup netcdf dimensions in output file
     ds.copyDimension("land")
     ds.copyDimension("y")
@@ -183,6 +184,8 @@ def indices_year(y, forcing_template, out_template) :
     # copy basic data
     ds.copyVariable('nav_lat')
     ds.copyVariable('nav_lon')
+    
+    print "Variables copied from forcing file"
     
     # create netcdf variables to hold indices in output file
     daylength = ds.create_variable("daylength", ("days","y"), np.float32)
@@ -206,7 +209,7 @@ def indices_year(y, forcing_template, out_template) :
     rh_afternoon.units = "percent"
     
     t_min = ds.create_variable("t_min", ('days','land'), np.float32)
-    t_min.long_name("minimum temperature for the 24hours preceeding burning period")
+    t_min.long_name = "minimum temperature for the 24 hours preceeding burning period"
     t_min.units = "K"
     
     t_afternoon = ds.create_variable("t_afternoon", ('days','land'), np.float32)
@@ -228,6 +231,8 @@ def indices_year(y, forcing_template, out_template) :
     i_gsi = ds.create_variable('gsi', ('days','land'), np.float32)
     i_gsi.long_name = 'GSI Index'
     i_gsi.units = 'dimensionless'
+    
+    print "Output NetCDF variables created"
         
     # base time
     time_start = t.Time('%04d:001'%y, format='yday', scale='ut1')
@@ -248,25 +253,25 @@ def indices_year(y, forcing_template, out_template) :
         daylength[i_day,:] = (ds.get_daylength_by_lat(day)).to(u.hour)
         
         # pull out/store minimim and afternoon temps
-        t_min[i_day,:] = tair.min()
-        t_afternoon[i_day,:] = tair.ref_val()
+        t_min[i_day,:] = tair.min(unitted=False)
+        t_afternoon[i_day,:] = tair.ref_val(unitted=False)
         
         # calculate RH & store
         rh_dlts = ds.compute_rh()
         rh_dlts.store_day(rh)
-        rh_max[i_day,:] = rh_dlts.max()
-        rh_min[i_day,:] = rh_dlts.min()
-        rh_afternoon[i_day,:] = rh_dlts.ref_val()
+        rh_max[i_day,:] = rh_dlts.max(unitted=False)
+        rh_min[i_day,:] = rh_dlts.min(unitted=False)
+        rh_afternoon[i_day,:] = rh_dlts.ref_val(unitted=False)
         
         # calculate GSI indices and store
-        i_tmin[i_day,:] = gsi.calc_i_tmin(t_min[tair.min()])
+        i_tmin[i_day,:] = gsi.calc_i_tmin(tair.min())
         i_photo[i_day,:] = gsi.calc_i_photo(daylength[i_day,:])
         i_vpd[i_day,:] = gsi.calc_i_vpd(ds.compute_afternoon_vpd())
         i_gsi[i_day,:] = i_tmin[i_day,:] * i_photo[i_day,:] * i_vpd[i_day,:]
         
         # first time through, store the first day's data
         if i_day == 1 : 
-            rh_dlts.store_day(rh, False)
+            rh_dlts.store_day(rh, current=False)
         
         # load next day for all variables
         ds.next()

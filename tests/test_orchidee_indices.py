@@ -43,6 +43,10 @@ class TestForcingDataset (unittest.TestCase) :
         # fake data array
         qair = fake_ds.createVariable('Qair', np.float32, dimensions=('tstep','land'))
         qair[:] = np.arange(160).reshape(16,10)
+        
+        # another fake data array
+        tair = fake_ds.createVariable('Tair', np.float32, dimensions=('tstep', 'land'))
+        tair[:] = np.arange(160,320).reshape(16,10)
             
         
         self.fd._nc_forcing = fake_ds
@@ -110,5 +114,10 @@ class TestForcingDataset (unittest.TestCase) :
         v = forcing.variables['Qair']
         self.assertEqual(0, v.dimensions.index('tstep'))
         self.assertTrue(np.all(v.shape == (16,10)))
-        self.fd.register_variable('Qair')
+        self.fd.register_variable('Qair', u.dimensionless_unscaled)
+        
+    def test_register_2nd_variable(self) : 
+        """check that we can register a 2nd variable"""
+        self.fd.register_variable('Tair', u.K)
+        self.fd.register_variable('Qair', u.dimensionless_unscaled)
         

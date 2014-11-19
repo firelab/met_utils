@@ -32,6 +32,16 @@ class TestLongitudeSamplingFunction(unittest.TestCase) :
         ind = np.trunc(delta_hours / (6*u.hour))
         self.assertTrue(np.all(test_ind == ind))
 
+class TestLookupTable (unittest.TestCase) : 
+    def test_longitudes(self) : 
+        """exercises the case where we are a longitude lookup"""
+        
+        lut = q.LookupTable(-179.75*u.deg, 0.5*u.deg, np.arange(720))
+        self.assertEqual(lut.get( 0*u.deg ), 359)             # middle bin
+        self.assertEqual(lut.get( -179.75 * u.deg) , 0) # first bin
+        self.assertEqual(lut.get( 179.75 * u.deg), 719) # last bin
+        
+
 class TestDiurnalLocalTimeStatistics(unittest.TestCase) : 
     def setUp(self) : 
         # six points, four samples/day, 4 days
@@ -245,3 +255,101 @@ class TestDiurnalLocalTimeStatistics(unittest.TestCase) :
         self.assertFalse(hasattr(x.get_utc_day(), "unit"))
         self.assertFalse(hasattr(x.get_preceeding_day(), "unit"))
         self.assertFalse(hasattr(x.get_buffer(), "unit"))
+        
+    def test_forego_units(self) : 
+        """make sure we can forego units if needed"""
+        x = q.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons, unit=u.Pa)
+                                          
+        self.assertEqual(x.get_utc_day().unit, u.Pa)
+        self.assertEqual(x.get_preceeding_day().unit, u.Pa)
+        self.assertEqual(x.get_buffer().unit, u.Pa)
+        x.load_day(3)
+        
+        # mean
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).mean()
+        self.assertEqual(first_point, x.mean(unitted=False)[0])
+        first_point = self.test_data[0,12:16].mean()
+        self.assertEqual(first_point, x.mean(unitted=False)[0])
+        
+        # max
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).max()
+        self.assertEqual(first_point, x.max(unitted=False)[0])
+        first_point = self.test_data[0,12:16].max()
+        self.assertEqual(first_point, x.max(unitted=False)[0])
+        
+        # min
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).min()
+        self.assertEqual(first_point, x.min(unitted=False)[0])
+        first_point = self.test_data[0,12:16].min()
+        self.assertEqual(first_point, x.min(unitted=False)[0])
+        
+        
+    def test_template_statistics(self) : 
+        """ensure that statistics fns work on template creation"""
+        v = np.ones( self.test_data.shape)                                                                    
+        y = q.DiurnalLocalTimeStatistics(v, self.time_axis, 
+                                          self.timestep, self.lons)
+        x = q.DiurnalLocalTimeStatistics(self.test_data, template=y)
+        x.load_day(3)
+        
+        # mean
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).mean()
+        self.assertEqual(first_point, x.mean()[0])
+        first_point = self.test_data[0,12:16].mean()
+        self.assertEqual(first_point, x.mean()[0])
+        
+        # max
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).max()
+        self.assertEqual(first_point, x.max()[0])
+        first_point = self.test_data[0,12:16].max()
+        self.assertEqual(first_point, x.max()[0])
+        
+        # min
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).min()
+        self.assertEqual(first_point, x.min()[0])
+        first_point = self.test_data[0,12:16].min()
+        self.assertEqual(first_point, x.min()[0])
+        
+
+class TestDLTSGroup (unittest.TestCase) : 
+    def setUp(self) : 
+        # six points, four samples/day, 4 days
+        self.test_data = np.arange(96).reshape( (6,16) )
+        self.time_axis = 1
+        self.timestep = 6*u.hour
+        self.lons = np.arange(6)*45*u.deg - 135*u.deg
+        self.dlts = q.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons)
+                                          
+    def test_template_ready(self): 
+        """verify that group object correctly advertises template creation readiness"""
+        grp = q.DLTSGroup()
+        self.assertFalse(grp.template_ready())
+        grp.add("base", self.dlts)
+        self.assertTrue(grp.template_ready())
+        
+    def test_template_creation(self): 
+        """verify that group correctly creates a template"""
+        grp = q.DLTSGroup()
+        self.assertEqual(grp.template, None)
+        
+        v = np.ones( self.test_data.shape)   
+        grp.add("base", self.dlts)
+        self.assertEqual(grp.template, self.dlts)
+
+        y = grp.create("bogus", v, u.Pa)
+                
+        self.assertEqual(self.time_axis, y.time_axis)
+        self.assertEqual(self.timestep,  y.timestep)
+        self.assertTrue(np.all(self.lons == y.lons))
+        self.assertTrue(np.all(self.dlts.i_ref == y.i_ref))
+        self.assertTrue(np.all(self.dlts.mask == y.mask))
+        self.assertTrue(np.all(self.dlts.source == self.test_data))
+        self.assertTrue(np.all(y.source == v))
+                                                                       
+
+        
+        
+
+    

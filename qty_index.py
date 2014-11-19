@@ -40,6 +40,28 @@ class LongitudeSamplingFunction (SamplingFunction) :
         lon_angle = c.Angle((-unit_val) + self.time_angle).wrap_at(360*u.deg) 
         return self.time_to_sample.get_index(lon_angle/self.E_ROT)
 
+class LookupTable(object) :
+    """Performs 1D nearest neighbor resampling""" 
+    def __init__(self, bin_min, bin_width, values) : 
+        """bins, values define the lookup table
+        
+        bin_min represents the center of the first bin
+        bin_width represents distance between bins
+        value is a parallel array representing the value for a bin
+        """
+        self.bin_min = bin_min
+        self.bin_width = bin_width
+        self.values = values
+        self.indexer = LinearSamplingFunction(1./bin_width, 
+                          -(bin_min/bin_width).to(u.dimensionless_unscaled))
+        
+        
+    def get(self, x) : 
+        """retrieves a value based on which bin "x" falls into"""
+        i = self.indexer.get_index(x)
+        return self.values[i]
+    
+
 class DiurnalLocalTimeStatistics (object) : 
     """Computes 24-hour summary statistics based on local time.
     
@@ -131,7 +153,11 @@ class DiurnalLocalTimeStatistics (object) :
     def __init_lons(self) :
         """precomputes indices into 2-day buffer"""
         tmp = LongitudeSamplingFunction(self.diurnal_window, self.ref_time)
-        self.i_ref = tmp.get_index(self.lons)   
+        
+        # makes a lookup table for 0.5 deg cells
+        lut = LookupTable(-179.75 *u.deg, 0.5*u.deg,
+                          tmp.get_index(np.arange(-179.75,180,0.5)*u.deg))
+        self.i_ref = lut.get(self.lons)   
         
         # create a mask array
         mask_shape = np.copy(self.source.shape)
@@ -196,25 +222,25 @@ class DiurnalLocalTimeStatistics (object) :
         
         self.cur_day += 1
         
-    def mean(self) : 
+    def mean(self, unitted=True) : 
         result = self.buffer_masked.mean(axis=self.time_axis)
-        if self.unit != unspecified_u : 
+        if unitted and self.unit != unspecified_u : 
             result = result * self.unit
         return result
         
-    def max(self) : 
+    def max(self, unitted=True) : 
         result = self.buffer_masked.max(axis=self.time_axis)
-        if self.unit != unspecified_u :
+        if unitted and self.unit != unspecified_u :
             result = result * self.unit
         return result
         
-    def min(self): 
+    def min(self, unitted=True): 
         result = self.buffer_masked.min(axis=self.time_axis)
-        if self.unit != unspecified_u : 
+        if unitted and self.unit != unspecified_u : 
             result = result * self.unit
         return result
         
-    def ref_val(self) : 
+    def ref_val(self, unitted=True) : 
         """returns the variable's instantaneous value at the reference time
         
         The time sample selected depends on the longitude of the cell. 
@@ -233,7 +259,7 @@ class DiurnalLocalTimeStatistics (object) :
             i_buf[i_land] = i
             result[i] = self.buffer[i_buf]
             
-        if self.unit != unspecified_u : 
+        if unitted and self.unit != unspecified_u : 
             result = result * self.unit
             
         return result
