@@ -256,6 +256,30 @@ class TestDiurnalLocalTimeStatistics(unittest.TestCase) :
         self.assertFalse(hasattr(x.get_preceeding_day(), "unit"))
         self.assertFalse(hasattr(x.get_buffer(), "unit"))
         
+    def test_units_on_statistics(self) :
+        """make sure statistics functions return Quantities by default"""
+        x = q.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 
+                                          self.timestep, self.lons, sequential=False,
+                                          unit=u.Pa)
+        x.load_day(3)
+        
+        # mean
+        mean = x.mean()
+        self.assertTrue(hasattr(mean, "unit"))
+        self.assertEqual(mean.unit, u.Pa)
+        
+        # max
+        mx = x.max()
+        self.assertTrue(hasattr(mx, "unit"))
+        self.assertEqual(mx.unit, u.Pa)
+        
+        # min
+        first_point = ma.array(self.test_data[0,8:16], mask=x.mask[0,:]).min()
+        self.assertEqual(first_point, x.min()[0])
+        first_point = self.test_data[0,12:16].min()
+        self.assertEqual(first_point, x.min()[0])
+        
+        
     def test_forego_units(self) : 
         """make sure we can forego units if needed"""
         x = q.DiurnalLocalTimeStatistics(self.test_data, self.time_axis, 

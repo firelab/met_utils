@@ -45,6 +45,7 @@ class Normalize (object) :
         return scaled_x
                 
 def calc_i_tmin(tmin) : 
+    tmin = tmin.to(u.deg_C, equivalencies=u.temperature())
     return __xf_tmin.scale(tmin)
     
 def calc_i_vpd(vpd) :

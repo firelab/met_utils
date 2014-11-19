@@ -97,3 +97,39 @@ class TestGSI(unittest.TestCase) :
         
         for i in range(len(frac)) :
             self.assertLess(i_gsi[i] - (frac[i]**3), 1e-5)
+            
+    def test_i_photo(self) : 
+        """tests function which computes photoperiod index"""
+        frac = np.arange(0.0, 1.0, 0.2)
+        photo = frac * (gsi.PHOTO_MAX-gsi.PHOTO_MIN) + gsi.PHOTO_MIN
+        
+        i_photo = gsi.calc_i_photo(photo)
+        self.assertTrue(np.all( np.abs(i_photo - frac) < 1e-5 ))
+        
+    def test_i_vpd(self) : 
+        """tests function which computes vpd index"""
+        frac = np.arange(0.0, 1.0, 0.2)
+        vpd = (1-frac) * (gsi.VPD_MAX-gsi.VPD_MIN) + gsi.VPD_MIN
+
+        i_vpd = gsi.calc_i_vpd(vpd)
+        self.assertTrue(np.all( np.abs(i_vpd-frac) < 1e-5))
+        
+    def test_i_tmin(self) : 
+        """tests function which computes tmin index"""
+        frac = np.arange(0.0, 1.0, 0.2)
+        tmin = frac * (gsi.TMIN_MAX-gsi.TMIN_MIN) + gsi.TMIN_MIN
+
+        i_tmin = gsi.calc_i_tmin(tmin)
+        self.assertTrue(np.all( np.abs(i_tmin-frac) < 1e-5))
+        
+    def test_i_tmin_kelvin(self) : 
+        """tests behavior when compute_i_tmin is called with kelvin temps"""
+        frac = np.arange(0.0, 1.0, 0.2)
+        tmin = frac * (gsi.TMIN_MAX-gsi.TMIN_MIN) + gsi.TMIN_MIN
+
+        tmin = tmin.to(u.K, equivalencies=u.temperature())
+        
+        i_tmin = gsi.calc_i_tmin(tmin)
+        self.assertTrue(np.all( np.abs(i_tmin-frac) < 1e-5))
+
+        
