@@ -51,6 +51,15 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
         
         return self._longitudes
         
+    def get_latitudes(self) : 
+        """caches/retrieves latitudes"""
+        if not hasattr(self,"_latitudes") : 
+            forcing = self.get_forcing()
+            lat_array = forcing.variables['nav_lat'][:] * u.deg
+            self._latitudes = lat_array[self.get_xy_indices()]
+        return self._latitudes
+            
+        
     def get_daylength_by_lat(self, day) : 
         """Calculates the daylength at each latitude
         
@@ -69,6 +78,12 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
         
         up = sun.Uptime(sun.SunPosition, day, earthlocs)
         return up.approximate_daylength()
+        
+    def get_daylength_lookup(self, day) : 
+        forcing = self.get_forcing()
+        lats = forcing.variables['nav_lat'][:,0] * u.deg
+        values = self.get_daylength_by_lat(day)
+        return q.LookupTable(lats[0], (lats[1]-lats[0]), values)
         
     def get_timestep(self) :
         """caches/calculates the timestep from the info in the file""" 
@@ -250,7 +265,9 @@ def indices_year(y, forcing_template, out_template) :
         day = time_start + (i_day*u.day)
         if (hasattr(time_start,"delta_ut1_utc")) : 
             day.delta_ut1_utc = time_start.delta_ut1_utc
-        daylength[i_day,:] = (ds.get_daylength_by_lat(day)).to(u.hour)
+            
+        daylength_lut = ds.get_daylength_lookup(day)
+        daylength[i_day,:] = daylength_lut.values.to(u.hour)
         
         # pull out/store minimim and afternoon temps
         t_min[i_day,:] = tair.min(unitted=False)
@@ -265,7 +282,7 @@ def indices_year(y, forcing_template, out_template) :
         
         # calculate GSI indices and store
         i_tmin[i_day,:] = gsi.calc_i_tmin(tair.min())
-        i_photo[i_day,:] = gsi.calc_i_photo(daylength[i_day,:])
+        i_photo[i_day,:] = gsi.calc_i_photo(daylength_lut.get(ds.get_latitudes()))
         i_vpd[i_day,:] = gsi.calc_i_vpd(ds.compute_afternoon_vpd())
         i_gsi[i_day,:] = i_tmin[i_day,:] * i_photo[i_day,:] * i_vpd[i_day,:]
         
