@@ -265,7 +265,7 @@ def indices_year(y, forcing_template, out_template) :
         
         # calculate GSI indices and store
         i_tmin[i_day,:] = gsi.calc_i_tmin(tair.min())
-        i_photo[i_day,:] = gsi.calc_i_photo(daylength[i_day,:])
+        i_photo[i_day,:] = gsi.calc_i_photo(daylength[i_day,:]*u.hour)
         i_vpd[i_day,:] = gsi.calc_i_vpd(ds.compute_afternoon_vpd())
         i_gsi[i_day,:] = i_tmin[i_day,:] * i_photo[i_day,:] * i_vpd[i_day,:]
         
