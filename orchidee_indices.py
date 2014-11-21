@@ -82,7 +82,7 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
     def get_daylength_lookup(self, day) : 
         forcing = self.get_forcing()
         lats = forcing.variables['nav_lat'][:,0] * u.deg
-        values = self.get_daylength_by_lat(day)
+        values = self.get_daylength_by_lat(day).to(u.hour)
         return q.LookupTable(lats[0], (lats[1]-lats[0]), values)
         
     def get_timestep(self) :
@@ -267,7 +267,7 @@ def indices_year(y, forcing_template, out_template) :
             day.delta_ut1_utc = time_start.delta_ut1_utc
             
         daylength_lut = ds.get_daylength_lookup(day)
-        daylength[i_day,:] = daylength_lut.values.to(u.hour)
+        daylength[i_day,:] = daylength_lut.values
         
         # pull out/store minimim and afternoon temps
         t_min[i_day,:] = tair.min(unitted=False)

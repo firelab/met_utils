@@ -55,6 +55,27 @@ class TestSaturationVapor (unittest.TestCase) :
                 self.assertTrue((self.vp[i]-test_vp[i]) < 0.1*u.kPa,
                 msg= "Failure on {}.calc_vp({:3.1}) == {:3.1} (got {:3.1})".format(method, self.temp[i],self.vp[i],test_vp[i]))
 
+class TestNegativeTempSaturationVapor (unittest.TestCase) :
+    
+    def setUp(self) : 
+        """Tabulated values of saturation vapor pressure taken
+        from [1], Table 2.1
+        
+        These are still saturation vapor pressure over a plane of liquid water, 
+        not ice. [1] warns: "There is some uncertainty about the values of e_s
+        for T<0C owing to a lack of experimental data." Physically speaking, 
+        over land, it will be hard to find exposed liquid water if the temperatures 
+        drop too far below zero for too long.
+        
+        Saturation vapor pressures over ice are smaller than saturation vapor 
+        pressures over water.
+
+        1.Rogers, R. R. A Short Course in Cloud Physics, Third Edition. (Pergamon, 1989).
+        """
+        self.temp = np.array([-5, -10, -15, -20, -25, -30, -35, -40]) * u.deg_C
+        self.vp   = np.array([421.84, 286.57, 191.44, 125.63, 80.9, 
+                              51.06, 31.54, 19.05]) * u.Pa
+        
         
                
 #suite = unittest.TestLoader().loadTestsFromTestCase(TestSaturationVapor)

@@ -42,7 +42,7 @@ class Normalize (object) :
         else : 
             scaled_x = np.clip(scaled_x, 0, 1)
             
-        return scaled_x
+        return scaled_x.to(u.dimensionless_unscaled)
                 
 def calc_i_tmin(tmin) : 
     tmin = tmin.to(u.deg_C, equivalencies=u.temperature())
