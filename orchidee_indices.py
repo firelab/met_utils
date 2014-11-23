@@ -13,6 +13,7 @@ import astropy.time as t
 import numpy as np
 import fuelmoisture as fm
 import met_functions as met
+import window as w
 import sun
 import gsi
 
@@ -246,8 +247,17 @@ def indices_year(y, forcing_template, out_template) :
     i_gsi = ds.create_variable('gsi', ('days','land'), np.float32)
     i_gsi.long_name = 'GSI Index'
     i_gsi.units = 'dimensionless'
+
+    gsi_days = 10
+    i_gsi_avg = ds.create_variable('gsi_avg', ('days','land'), np.float32)
+    i_gsi_avg.long_name = 'GSI Index (%d day running average)' % gsi_days
+    i_gsi_avg.units = 'dimensionless'
     
     print "Output NetCDF variables created"
+    
+    
+    # moving window of GSI data
+    gsi_window = w.MovingWindow(i_gsi.shape, 0, gsi_days)
         
     # base time
     time_start = t.Time('%04d:001'%y, format='yday', scale='ut1')
@@ -284,7 +294,14 @@ def indices_year(y, forcing_template, out_template) :
         i_tmin[i_day,:] = gsi.calc_i_tmin(tair.min())
         i_photo[i_day,:] = gsi.calc_i_photo(daylength_lut.get(ds.get_latitudes()))
         i_vpd[i_day,:] = gsi.calc_i_vpd(ds.compute_afternoon_vpd())
-        i_gsi[i_day,:] = i_tmin[i_day,:] * i_photo[i_day,:] * i_vpd[i_day,:]
+        gsi_vals = i_tmin[i_day,:] * i_photo[i_day,:] * i_vpd[i_day,:]
+        i_gsi[i_day,:] = gsi_vals
+
+        # calculate running GSI average and store
+        gsi_window.put(gsi_vals)
+        if gsi_window.ready() : 
+            i_gsi_avg[i_day,:] = gsi_window.mean()
+                
         
         # first time through, store the first day's data
         if i_day == 1 : 
