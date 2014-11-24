@@ -15,6 +15,23 @@ class TestFuelMoisture(unittest.TestCase) :
         emc_f = fm.eqmc(tf, rh)
         
         self.assertLess( np.abs(emc_c - emc_f), 0.1*u.pct)
+        self.assertEqual(emc_c.unit, u.pct)
+        
+    def test_eqmc_bar_units(self) : 
+        """checks that eqmc_bar returns expected values"""
+        rh_min = 15*u.pct
+        rh_max = 60*u.pct
+        t_min  = 60*iu.deg_F
+        t_max  = 85*iu.deg_F
+        daylength = 15*u.hour
+        testval  = fm.eqmc_bar(daylength, t_max, t_min, rh_max, rh_min)
+        
+        emax = fm.eqmc(t_min,rh_max)
+        emin = fm.eqmc(t_max,rh_min)
+        refval = (daylength*emin + (1*u.day-daylength)*emax)/(1*u.day)
+        
+        self.assertEqual(testval,refval)
+        self.assertEqual(testval.unit, u.pct)
         
     def test_oneten_units(self): 
         """Checks for proper temperature units conversion"""
@@ -54,7 +71,52 @@ class TestFuelMoisture(unittest.TestCase) :
                                [0,1,interpval] * u.hour < 1.e-5 * u.hour),
                                "Array data type failed")
                                
-
+class TestFMCalculators (unittest.TestCase) : 
+    def setUp(self) : 
+        # 14 days by 8 land points
+        self.land_points = 8
+        self.shape = (14,self.land_points)
+        self.time_axis = 0 
+        self.precip_duration = np.zeros( (self.land_points,) ) * u.hour
+        self.eqmc_bar = np.ones( (self.land_points,)) * 30 * u.pct
+        
+    def test_create_fm1000(self) : 
+        """can we make a 1000 hr fm object"""
+        x = fm.ThousandHourFM(self.shape, self.time_axis) 
+    
+    def test_create_fm100(self) : 
+        """can we make a 100 hr fm object"""
+        x = fm.HundredHourFM(self.shape, self.time_axis)
+        
+    def compute_1000_hr(self) : 
+        """basic 1000-hr fuel moisture calculation, no precip"""
+        x = fm.ThousandHourFM(self.shape, self.time_axis)
+        testval = x.compute(self.eqmc_bar, self.precip_duration) 
+        self.assertTrue(hasattr(testval),'unit')
+        self.assertEqual(testval.unit, u.pct)
+        self.assertEqual(len(testval.shape),1)
+        self.assertEqual(testval.shape[0], self.land_points)
+        
+        boundary_bar = ((15*u.pct * 6) + 30*u.pct) / 7
+        refval = 15*u.pct + (boundary_bar - 15*u.pct) * .3068
+        self.assertTrue(np.all(refval == testval))
+        
+        
+    def compute_100_hr(self): 
+        """basic 100-hr fuel moisture calculation, no precip"""
+        x = fm.HundredHourFM(self.shape, self.time_axis)
+        testval = x.compute(self.eqmc_bar, self.precip_duration) 
+        self.assertTrue(hasattr(testval),'unit')
+        self.assertEqual(testval.unit, u.pct)
+        self.assertEqual(len(testval.shape),1)
+        self.assertEqual(testval.shape[0], self.land_points)
+        
+        refval = 20*u.pct + 0.3156 * (self.eqmc_bar - 20*u.pct)
+        self.assertTrue(np.all(refval == testval))
+        
+        
+        
+    
                 
 
         

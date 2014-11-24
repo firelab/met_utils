@@ -21,10 +21,10 @@ at a time.
 """
 from astropy import units as u
 from astropy.units import imperial as iu
-import image_chain as ic
 import numpy as np
 import numpy.ma as ma
 import qty_index as qi
+import window as w
 
 ## \fn eqmc (self,Temp,RH)
 ## \brief Calculate the equilibrium moisture content
@@ -267,7 +267,7 @@ def eqmc_bar(daylight, t_max, t_min, rh_max, rh_min):
     nighttime = 24*u.hour  - daylight
     return (daylight * emc_min + (nighttime * emc_max)) / (24*u.hour)
 
-class HundredHourFM(ic.IndividualStateOperator) : 
+class HundredHourFM(object) : 
     """class to calculate 100 hour fuel moisture
     
     This class calculates 100 hour fuel moisture sequentially
@@ -276,34 +276,29 @@ class HundredHourFM(ic.IndividualStateOperator) :
     provide daily data to this class in time order. 
     """
     
-    def _get_history_dtype(self) : 
-        """define a record type for the history required by this class
+    def __init__(self, shape, time_axis) : 
+        """initialize a 100 hour FM calculator for the given shape and time axis"""
+        self.history = w.MovingWindow(shape,time_axis, 1, initial_value=20*u.pct,
+                                    unit = u.pct)
         
-        All this class needs to remember is the previous day's fuel moisture
-        """
-        return np.dtype( [ ('fm_100', np.float64) ] )
-        
-    def _get_history_depth(self) : 
-        return 1
-        
-    def _init_history(self) :
-        self._history[:].fm_100 = 20 * u.pct
-        
-    def fm_100(self, eqmc_bar, precip_dur) : 
+    
+                
+    def compute(self, eqmc_bar, precip_dur) : 
 	# eqn 36
 	boundary = ((24.0 *u.hour - precip_dur) * eqmc_bar + 
 	           precip_dur * ((.5 * u.pct/u.hour) * precip_dur + (41*u.pct))) / (24*u.hour)
 	   	
 	# eq 37, but 0.3156 is not the specified constant
-	prev_fm_100 = self.history[Ellipsis,0].fm_100
+	prev_fm_100 = self.history.get(0)
 	fm_100 = prev_fm_100 + .3156 * (boundary - prev_fm_100);
         
-	self._history[Ellipsis,0] = fm_100
+	self.history.put(fm_100)
+	return fm_100
 	
-	self._output_arrays['fm_100'] = fm_100
+    def ready(self) : 
+        return self.history.ready()
     
-    
-class ThousandHourFM (ic.IndividualStateOperator) :
+class ThousandHourFM (object) :
     """class to calculate 1000 hour fuel moisture
     
     This class calculates 1000 hour fuel moisture sequentially
@@ -312,31 +307,24 @@ class ThousandHourFM (ic.IndividualStateOperator) :
     provide daily data to this class in time order. 
     """
     
-    def _get_history_dtype(self) : 
-        """define a record type for the history required by this class
+    def __init__(self, shape, time_axis) : 
+        """initializes a 1000 hour FM calculator for the given array shape and time_axis"""
         
-        This class only needs to remember boundary calculations and prior 
-        fuel moistures.
-        """
-        return np.dtype( [ ('boundary', np.float64), ('fm_1000', np.float64)] )
-        
-    def _get_history_depth(self) : 
-        """retain one week (7 days/iterations) of history"""
-        return 7
-        
-    def _init_history(self): 
-        """initialize the history buffer with default values"""
         # for climate class 1 & 2 : 15% is default, for 3&4 : 23%
-        self._history[:].boundary = 15 * u.pct
-        
-        # no default specified in literature. this is from Matt Jolly's source
-        self._history[:].fm_1000  = 15 * u.pct
+        self.boundary = w.MovingWindow(shape, time_axis, 7, 
+                        unit = u.pct, initial_value=15*u.pct)
+                        
+        # no initial value specified in literature. 
+        # this is from Matt Jolly's source
+        self.moisture = w.MovingWindow(shape, time_axis, 7,
+                        unit = u.pct, initial_value=15*u.pct)
+    
 
 
     ## \fn hundredthous (self, Temp,RH,MaxTemp,MaxRH,MinTemp, MinRH,Julian,PrecipDur)
     ## \brief Calculate the hundred and thousand hour moisture contents
     ## \param 24-hour Precipitation Duration (hours)
-    def fm_1000 (self, eqmc_bar, precip_dur):
+    def compute (self, eqmc_bar, precip_dur):
         """perform the calculation
         
         This function implements the 1978 NFDRS fuel moisture calculations for
@@ -352,31 +340,22 @@ class ThousandHourFM (ic.IndividualStateOperator) :
 	# bndryT == boundary 1000-hour
 	boundary = ((24.0*u.hour - precip_dur) * eqmc_bar + 
 	          precip_dur * ((2.7*u.pct/u.hour) * precip_dur + 76*u.pct)) / (24*u.hour)
+	          
 
-	# eq 40 , must mask out oldest boundary record
+	# eq 40 
 	# (we want today's boundary val + the previous six values)
-        oldest_idx = self._rr_view.get_history_index(6)
-        bmask = np.empty( self._history.shape ,dtype = np.bool)
-        bmask[:] = False
-        bmask[...,oldest_idx] = True
-        masked_hist = ma.array(self._history, mask=bmask, copy=False)
-        boundary_bar = np.sum(masked_hist[:].boundary, axis=self._rr_view.histdim)
-        boundary_bar += boundary # do op in place, no copy
-        boundary_bar /= 7        # do op in place, no copy
+	self.boundary.put(boundary)
+	boundary_bar = self.boundary.mean()
         
 	   	
         # eq 42, but 0.3068 is not the specified constant
-        prev_fm_1000 = self._history[...,oldest_idx]
+        # 0.3068 came from Matt Jolly's source code
+        prev_fm_1000 = self.moisture.get(0)
 	fm_1000 = prev_fm_1000 + (boundary_bar - prev_fm_1000) * .3068
+		
+	self.moisture.put(fm_1000)
 	
-	# cycle the history
-	self._rr_view.next()
+	return fm_1000
 	
-	# store new values in the history
-	newest_idx = self._rr_view.get_history_index(0)
-	self._history[...,newest_idx].fm_1000 = fm_1000
-	self._history[...,newest_idx].boundary = boundary
-	
-	# store output
-	self._output_arrays['fm_1000'] = fm_1000
-	
+    def ready(self) : 
+        return self.moisture.ready()

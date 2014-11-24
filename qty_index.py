@@ -193,6 +193,9 @@ class DiurnalLocalTimeStatistics (object) :
         self.buffer = self._get_src_data(start,end)
         self.buffer_masked = ma.array(self.buffer, mask=self.mask)
 
+    def get_num_landpts(self) : 
+        return len(self.lons)
+        
         
     def next(self) : 
         """loads the next day's data into the buffer
