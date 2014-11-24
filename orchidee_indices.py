@@ -174,10 +174,10 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
         raining = (rainf.get_preceeding_day() > 0)
         i_raining = [ slice(None,None,None) ] * 2
         for i in range(landpts) : 
-            i_raining[rainf.time_axis] = i
+            i_raining[not rainf.time_axis] = i
             rain_count[i] = np.count_nonzero(raining[i_raining])
         
-        daily_obs = self.get_samples_per_day()
+        daily_obs = self.get_samples_per_day() / u.day
         return fm.precip_duration_sub_day(rain_count, daily_obs)
 
     def compute_eqmc_bar(self, daylengths) : 
@@ -348,7 +348,8 @@ def indices_year(y, forcing_template, out_template) :
         
         # calculate GSI indices and store
         i_tmin[i_day,:] = gsi.calc_i_tmin(tair.min())
-        i_photo[i_day,:] = gsi.calc_i_photo(daylength_lut.get(ds.get_latitudes()))
+        cell_daylengths = daylength_lut.get(ds.get_latitudes())
+        i_photo[i_day,:] = gsi.calc_i_photo(cell_daylengths)
         i_vpd[i_day,:] = gsi.calc_i_vpd(ds.compute_afternoon_vpd())
         gsi_vals = i_tmin[i_day,:] * i_photo[i_day,:] * i_vpd[i_day,:]
         i_gsi[i_day,:] = gsi_vals
@@ -363,7 +364,7 @@ def indices_year(y, forcing_template, out_template) :
         precip[i_day,:] = precip_val
         
         # calculate daily avg equilibrium moisture content
-        eqmc_bar_val = ds.compute_eqmc_bar(daylength_lut.values)
+        eqmc_bar_val = ds.compute_eqmc_bar(cell_daylengths)
         eqmc_bar[i_day,:] = eqmc_bar_val
         
         # calculate fuel moisture content

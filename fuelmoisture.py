@@ -46,6 +46,10 @@ def eqmc (Temp,RH):
     equations C-1, C-2, and C-3. Note that the RH ranges which select which 
     equation to use have been fixed so they are not overlapping.
     
+    We require that RH and Temp are both scalars or are both arrays of the 
+    same shape. We do not permit the case where one is a scalar and the other
+    is an array.
+    
     [1] Bradshaw, Larry S., John E. Deeming, Robert E. Burgan, and Jack D. Cohen. 
     1984. The 1978 National Fire-Danger Rating System: Technical Documentation. 
     http://www.treesearch.fs.fed.us/pubs/29615.    
@@ -53,13 +57,23 @@ def eqmc (Temp,RH):
 
     if (Temp.unit != iu.deg_F) : 
         Temp = Temp.to(iu.deg_F, u.temperature())
-    if(RH > 50*u.pct):
-        return  (21.0606*u.pct + (0.005565 * 1/u.pct) * RH**2 - 
-                 ((0.00035 * 1/iu.deg_F) * RH * Temp) - 0.483199 * RH)
-    if(RH > 10*u.pct) and (RH <= 50*u.pct):
-        return (2.22749*u.pct + 0.160107 * RH - (0.014784 * u.pct/iu.deg_F) * Temp)
-    else:
-        return (0.03229*u.pct + 0.281073 * RH - (0.000578 * 1/iu.deg_F) * RH * Temp)	
+        
+    if RH.isscalar : 
+        # convert to an array of 1
+        RH = u.Quantity([RH])
+        Temp = u.Quantity([Temp])
+        
+    case_c3 = np.where(RH > 50*u.pct)
+    case_c2 = np.where( np.logical_and(RH > 10*u.pct, RH<=50*u.pct))
+    case_c1 = np.where( RH <= 10*u.pct)
+    retval  = RH.copy()
+    
+    retval[case_c3] = (21.0606*u.pct + (0.005565 * 1/u.pct) * RH[case_c3]**2 - 
+                 ((0.00035 * 1/iu.deg_F) * RH[case_c3] * Temp[case_c3]) - 0.483199 * RH[case_c3])
+    retval[case_c2] = (2.22749*u.pct + 0.160107 * RH[case_c2] - (0.014784 * u.pct/iu.deg_F) * Temp[case_c2])
+    retval[case_c1] = (0.03229*u.pct + 0.281073 * RH[case_c1] - (0.000578 * 1/iu.deg_F) * RH[case_c1] * Temp[case_c1])
+    
+    return retval	
 
 ## \fn oneten (Temp, RH, SOW)
 ## \brief Calculate the one and ten hour moisture contents
@@ -193,6 +207,7 @@ def precip_duration_sub_day(rainy_periods, daily_obs) :
     -------
     estimate of the precipitation duration
     """
+    daily_obs = u.Quantity(daily_obs, unit=1/u.day)
     precip_interp_x = np.array([0,1,(daily_obs/(1/u.day))])  # / u.day
     precip_interp_y = np.array([0.,1.,24.]) # * u.hour
     return np.interp(rainy_periods, precip_interp_x, precip_interp_y) * u.hour

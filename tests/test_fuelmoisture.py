@@ -17,6 +17,15 @@ class TestFuelMoisture(unittest.TestCase) :
         self.assertLess( np.abs(emc_c - emc_f), 0.1*u.pct)
         self.assertEqual(emc_c.unit, u.pct)
         
+    def test_eqmc_array(self) : 
+        """ensures that eqmc calculator works with arrays."""
+        rh = np.arange(20,80, 5) * u.pct
+        tf = np.arange(80,20, -5) * iu.deg_F
+        self.assertEqual(rh.size, tf.size)
+        
+        emc = fm.eqmc( tf, rh)
+        self.assertEqual(emc.size, rh.size)
+        
     def test_eqmc_bar_units(self) : 
         """checks that eqmc_bar returns expected values"""
         rh_min = 15*u.pct
@@ -70,6 +79,10 @@ class TestFuelMoisture(unittest.TestCase) :
         self.assertTrue(np.all(fm.precip_duration_sub_day( [0,1,3]/u.day, 4/u.day) - 
                                [0,1,interpval] * u.hour < 1.e-5 * u.hour),
                                "Array data type failed")
+                               
+        # testing the "no units" case
+        self.assertLess(fm.precip_duration_sub_day(np.array([1]), 4) - 1 * u.hour, 
+            1e-5*u.hour, "Single rain observation should be 1 hour rain")
                                
 class TestFMCalculators (unittest.TestCase) : 
     def setUp(self) : 
