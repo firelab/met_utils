@@ -59,7 +59,10 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
             lat_array = forcing.variables['nav_lat'][:] * u.deg
             self._latitudes = lat_array[self.get_xy_indices()]
         return self._latitudes
-            
+
+    def get_num_land_points(self) :   
+        forcing = self.get_forcing()
+        return len(forcing.dimensions['land'])          
         
     def get_daylength_by_lat(self, day) : 
         """Calculates the daylength at each latitude
@@ -158,7 +161,40 @@ class ForcingDataset ( agg.NetCDFTemplate ) :
         p = bufs.get('PSurf').ref_val()
         vp_act = met.calc_vp_spec_humidity(q,p)
         return met.calc_vpd(t,vp_act)
-      
+        
+    def compute_precip_duration(self) : 
+        bufs = self.get_buffer_group()
+        
+        rainf = bufs.get('Rainf')
+        landpts = self.get_num_land_points()
+        
+        # count the number of times rain was observed
+        # in the past day
+        rain_count = np.empty( (landpts,) )
+        raining = (rainf.get_preceeding_day() > 0)
+        i_raining = [ slice(None,None,None) ] * 2
+        for i in range(landpts) : 
+            i_raining[rainf.time_axis] = i
+            rain_count[i] = np.count_nonzero(raining[i_raining])
+        
+        daily_obs = self.get_samples_per_day()
+        return fm.precip_duration_sub_day(rain_count, daily_obs)
+
+    def compute_eqmc_bar(self, daylengths) : 
+        bufs = self.get_buffer_group()
+        derived = self.get_derived_buffers()
+        
+        temps = bufs.get('Tair')
+        rh    = derived.get('rh')
+        
+        t_min = temps.min()
+        t_max = temps.max()
+        rh_min = rh.min()
+        rh_max = rh.max()
+        
+        return fm.eqmc_bar(daylengths, t_max, t_min, rh_max, rh_min)
+        
+       
 
     def next(self) :
         """advance all of the registered variables to the next day"""
@@ -187,7 +223,7 @@ def indices_year(y, forcing_template, out_template) :
     qair = ds.register_variable("Qair", u.dimensionless_unscaled)
     tair = ds.register_variable("Tair", u.Kelvin)
     ds.register_variable("PSurf", u.Pa)
-#    rainf = ds.register_variable("Rainf")
+    rainf = ds.register_variable("Rainf", u.kg / (u.m**2) / u.s )
 #    swdown = ds.register_variable("SWdown")
     
     print "NetCDF variables registered"
@@ -253,11 +289,31 @@ def indices_year(y, forcing_template, out_template) :
     i_gsi_avg.long_name = 'GSI Index (%d day running average)' % gsi_days
     i_gsi_avg.units = 'dimensionless'
     
+    precip = ds.create_variable('precip_duration', ('days','land'), np.float32)
+    precip.long_name = "Duration of precipitation"
+    precip.units = 'hours'
+    
+    eqmc_bar = ds.create_variable('eqmc_bar', ('days','land'), np.float32)
+    eqmc_bar.long_name = 'Weighted daily average equilibrium moisture content'
+    eqmc_bar.units = 'percent'
+    
+    fm1000 = ds.create_variable('fm1000', ('days','land'), np.float32)
+    fm1000.long_name = '1000 hour fuel moisture'
+    fm1000.units = 'percent'
+    
+    fm100  = ds.create_variable('fm100', ('days','land'), np.float32)
+    fm100.long_name = '100 hour fuel moisture'
+    fm100.units = 'percent'
+    
     print "Output NetCDF variables created"
     
     
     # moving window of GSI data
     gsi_window = w.MovingWindow(i_gsi.shape, 0, gsi_days)
+    
+    # initialize fuel moisture calculators
+    fm1000_calc = fm.ThousandHourFM(fm1000.shape, 0)
+    fm100_calc  = fm.HundredHourFM(fm100.shape, 0)
         
     # base time
     time_start = t.Time('%04d:001'%y, format='yday', scale='ut1')
@@ -301,6 +357,18 @@ def indices_year(y, forcing_template, out_template) :
         gsi_window.put(gsi_vals)
         if gsi_window.ready() : 
             i_gsi_avg[i_day,:] = gsi_window.mean()
+            
+        # calculate precipitation duration and store
+        precip_val = ds.compute_precip_duration()
+        precip[i_day,:] = precip_val
+        
+        # calculate daily avg equilibrium moisture content
+        eqmc_bar_val = ds.compute_eqmc_bar(daylength_lut.values)
+        eqmc_bar[i_day,:] = eqmc_bar_val
+        
+        # calculate fuel moisture content
+        fm1000[i_day,:] = fm1000_calc.compute(eqmc_bar_val, precip_val)
+        fm100[i_day,:]  = fm100_calc.compute(eqmc_bar_val, precip_val)
                 
         
         # first time through, store the first day's data
