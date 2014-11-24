@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import window as w
+import astropy.units as u
 
 class TestMovingWindow (unittest.TestCase) : 
     def setUp(self) : 
@@ -83,3 +84,49 @@ class TestMovingWindow (unittest.TestCase) :
         # get most current slice
         self.assertTrue(np.all(self.mw.get(3) == self.x[3,:]))
         self.assertTrue(np.all(self.mwt.get(3) == self.x.T[:,3]))
+        
+    def test_initial_value(self) : 
+        """make sure we can initialize to known values"""
+        mw = w.MovingWindow(self.x.shape, 0, 4, initial_value=1e20)
+        self.assertTrue(np.all(mw.buffer[:] == 1e20))
+        
+        
+    def test_unit(self) : 
+        """check that our window behaves correctly for specified units"""
+        self.mw.unit = u.pct
+        
+        # putting plain data should assume units are correct
+        for i in range(4) : 
+            self.mw.put( self.x[i,:] ) 
+            
+        # and getting should return the correct quantity object
+        myslice = self.mw.get(0)
+        self.assertTrue(hasattr(myslice, 'unit'))
+        self.assertEqual(myslice.unit, u.pct)
+        self.assertTrue(np.all(myslice[:] == self.x[0,:]*u.pct))
+        
+        # so should statistical functions
+        self.assertTrue(np.all(self.mw.mean() == np.mean(self.x[:4,:]*u.pct, axis=0)))
+        self.assertTrue(np.all(self.mw.sum() == np.sum(self.x[:4,:]*u.pct, axis=0)))
+        
+    def test_unit_init_val_conflict(self) : 
+        """initial value should be converted to window units if specified"""
+        
+        # initial value is converted to window units.
+        mw = w.MovingWindow(self.x.shape, 0, 4, initial_value=20*u.pct,
+                    unit=u.dimensionless_unscaled)
+        self.assertTrue(np.all(mw.buffer[:] == 0.2))
+        
+        # not specifying units on initial value involves assuming
+        # units are correct
+        mw = w.MovingWindow(self.x.shape, 0, 4, initial_value=20, 
+                    unit=u.dimensionless_unscaled)
+        self.assertTrue(np.all(mw.buffer[:] == 20))
+        
+        #specifying units on initial value discards units
+        mw = w.MovingWindow(self.x.shape, 0, 4, initial_value=20*u.pct)
+        self.assertTrue(np.all(mw.buffer[:] == 20))
+        
+                    
+        
+
