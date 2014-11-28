@@ -17,22 +17,48 @@ class SamplingFunction (object) :
         pass
         
 class LinearSamplingFunction ( SamplingFunction ) :
+    """y=mx+b, where "x" is a unitted value, and y is index into array
+    
+    When creating the object, "m" == scale and "b" == offset.
+    """
     def __init__(self, scale, offset=0) :
         self.scale = scale
         self.offset = offset
         
-    def get_index(self, unit_val) : 
-        return np.trunc(unit_val*self.scale + self.offset).astype(np.int)
+    def get_index(self, unit_val) :
+        index = (unit_val*self.scale + self.offset).to(u.dimensionless_unscaled)
+        return np.trunc(index).astype(np.int)
+        
+class TimeSinceEpochFunction ( SamplingFunction ) : 
+    """calculates an index given a timestamp
+    
+    Create this object with an epoch, which is the timestamp of the first 
+    element in the array. Supply the interval between each sample as well.
+    """
+    def __init__(self, interval, epoch) :
+        self.interval = interval
+        self.epoch  = epoch 
+        
+    def get_index(self, time) : 
+        index = ((time - self.epoch).to(self.interval.unit) / self.interval)
+        index = index.to(u.dimensionless_unscaled)
+        return np.trunc(index).astype(np.int)
         
 class LongitudeSamplingFunction (SamplingFunction) : 
     E_ROT = 360*u.deg/(1*u.day)
     """earth angular velocity around own axis (approximate)"""
     
     def __init__(self, daily_samples, time_of_day) :
+        """initializes a longitude sampling function
+        
+        daily_samples should be a dimensionless number specifying the number 
+        of samples per day. time_of_day indicates the reference time of day in 
+        local time.
+        """
         self.daily_samples = daily_samples
         self.time_of_day = time_of_day
         self.time_angle = c.Angle( (time_of_day /(24*u.hour)) * 360 * u.deg)
-        sample_interval = (1./daily_samples) * u.day
+        sample_interval = (1./daily_samples)*u.day
         self.time_to_sample = LinearSamplingFunction( 1/sample_interval )
         
     def get_index(self, unit_val) : 

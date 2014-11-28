@@ -1,6 +1,7 @@
 import unittest
 import astropy.units as u
 import astropy.coordinates as c
+import astropy.time as time
 import qty_index as q
 import numpy as np
 import numpy.ma as ma
@@ -8,29 +9,67 @@ import netCDF4 as nc
 
 
 class TestLinearSamplingFunction(unittest.TestCase) : 
-    def test_four_samples_per_day(self) : 
-        samp_fn = q.LinearSamplingFunction( 4. / u.day)
-        hours = np.arange(0,23) * u.hour
-        test_ind = samp_fn.get_index(hours)
-        self.assertTrue(np.all(test_ind == np.trunc(hours/(6*u.hour))))
+    def test_same_units(self) : 
+        """same units for scale factor and unitted quantity"""
+        samp_fn = q.LinearSamplingFunction( 1/(0.25 * u.day))
+        hourly = np.arange(0,1,1./24) * u.day
+        hourly_i = np.trunc((hourly/(0.25*u.day)).to(u.dimensionless_unscaled)).astype(np.int)
+        test_ind = samp_fn.get_index(hourly)
+        self.assertTrue(np.all(test_ind == hourly_i))
         
+    def test_unit_mismatch(self): 
+        """scale factor not same units as unitted quantity"""
+        samp_fn = q.LinearSamplingFunction( 1/(0.25 * u.day))
+        hourly = np.arange(0,24) * u.hour
+        hourly_i = np.trunc((hourly/(0.25*u.day)).to(u.dimensionless_unscaled)).astype(np.int)
+        test_ind = samp_fn.get_index(hourly)
+        self.assertTrue(np.all(test_ind == hourly_i))
+
+                
 class TestLongitudeSamplingFunction(unittest.TestCase) : 
+    def test_index_units(self):  
+        samp_fn = q.LongitudeSamplingFunction(4 , 12*u.hour)
+        lons = np.arange(-180, 180, 30) * u.deg
+        test_ind = samp_fn.get_index(lons)
+        
+        self.assertEqual(test_ind.unit, u.dimensionless_unscaled)
+        
     def test_noon(self) : 
-        samp_fn = q.LongitudeSamplingFunction(4./u.day , 12*u.hour)
+        samp_fn = q.LongitudeSamplingFunction(4. , 12*u.hour)
         lons = np.arange(-180, 180, 30) * u.deg
         test_ind = samp_fn.get_index(lons)
         delta_hours = (c.Angle(180*u.deg - lons).wrap_at(360*u.deg) / (15 *(u.deg/u.hour)))
-        ind = np.trunc(delta_hours / (6*u.hour))
-        self.assertTrue(np.all(test_ind == ind))
+        ind = np.trunc((delta_hours / (6*u.hour)).to(u.dimensionless_unscaled))
+        self.assertTrue(np.all(test_ind == ind.astype(int)))
         
     def test_1400(self) : 
-        samp_fn = q.LongitudeSamplingFunction(4./u.day , 14*u.hour)
+        samp_fn = q.LongitudeSamplingFunction(4. , 14*u.hour)
         lons = np.arange(-180, 180, 30) * u.deg
         test_ind = samp_fn.get_index(lons)
         ang_1400 = (14./24.) * 360*u.deg
         delta_hours = (c.Angle(ang_1400 - lons).wrap_at(360*u.deg) / (15 *(u.deg/u.hour)))
-        ind = np.trunc(delta_hours / (6*u.hour))
-        self.assertTrue(np.all(test_ind == ind))
+        ind = np.trunc((delta_hours / (6*u.hour)).to(u.dimensionless_unscaled))
+        self.assertTrue(np.all(test_ind == ind.astype(int)))
+
+class TestTimeSinceEpochFunction(unittest.TestCase) : 
+    def test_day_of_2002(self) : 
+        epoch = time.Time('2002:001', format="yday")
+        interval = 0.25*u.day
+        tse = q.TimeSinceEpochFunction(interval, epoch)
+        index = tse.get_index(time.Time('2002:005', format='yday'))
+        self.assertEqual(index, 16)
+        
+    def test_array(self) : 
+        epoch = time.Time('2002:001', format="yday")
+        interval = 1*u.day
+        tse = q.TimeSinceEpochFunction(interval, epoch)
+        
+        control_vals = np.arange(0.5, 20, 5) 
+        times = epoch + control_vals*u.day
+        indices = tse.get_index(times)
+        
+        self.assertTrue(np.all(indices == np.trunc(control_vals)))
+        
 
 class TestLookupTable (unittest.TestCase) : 
     def test_longitudes(self) : 
