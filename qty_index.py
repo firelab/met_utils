@@ -21,8 +21,16 @@ class LinearSamplingFunction ( SamplingFunction ) :
     
     When creating the object, "m" == scale and "b" == offset.
     """
-    def __init__(self, scale, offset=0) :
+    def __init__(self, scale, offset=0, x_zero=None) :
+        """Initializes a LinearSamplingFunction object.
+        
+        Two possible ways to initialize this object include specifying a 
+        precalculated offset, or specifying the "x" associated with
+        y=0. If both are specified, x_zero is used.
+        """
         self.scale = scale
+        if x_zero is not None:  
+            offset = -(scale * x_zero)
         self.offset = offset
         
     def get_index(self, unit_val) :
@@ -65,6 +73,51 @@ class LongitudeSamplingFunction (SamplingFunction) :
         """converts longitude to sample"""
         lon_angle = c.Angle((-unit_val) + self.time_angle).wrap_at(360*u.deg) 
         return self.time_to_sample.get_index(lon_angle/self.E_ROT)
+
+class IdentitySamplingFunction (SamplingFunction) :
+    def get_index(self, unit_val) : 
+        """just passes unit_val through"""
+        return unit_val 
+    
+class OrthoIndexer (SamplingFunction)  : 
+    """Combines multiple SampleFunctions into one
+    
+    This implementation assumes that all array dimensions are part of the 
+    domain, and that all axes are orthogonal. The number of sampling functions
+    is the same as the number of unitted values provided, which is the same
+    as the number of indices returned.
+    """
+    def __init__(self, sample_functions) : 
+        """Initializes an NDindexer given a list of sampling functions"""
+        self.sample_functions = sample_functions
+        
+    def get_index(self, unit_val) : 
+        """returns a tuple of indices 
+        """
+        ret = np.empty( (len(self.sample_functions),), dtype=int)
+        for i in range(len(self.sample_functions)) : 
+            ret[i] = self.sample_functions[i].get_index(unit_val[i])
+        return tuple(ret) 
+
+class UnitIndexNdArray (object) : 
+    """provides single-element access to ndarray using unitted quantities"""
+    
+    def __init__(self, array, indexer) : 
+        """combines an array and an indexer"""        
+        self.array = array
+        self.indexer = indexer
+        
+    def get(self, index) : 
+        """returns single value from array"""
+        return self.array[self.indexer.get_index(index)]
+        
+    def put(self, index, value) : 
+        """puts single value in array"""
+        self.array[self.indexer.get_index(index)] = value
+        
+    def inc(self, index, value=1) : 
+        """increments value at index position"""
+        self.array[self.indexer.get_index(index)] += value
 
 class LookupTable(object) :
     """Performs 1D nearest neighbor resampling""" 

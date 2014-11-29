@@ -24,6 +24,13 @@ class TestLinearSamplingFunction(unittest.TestCase) :
         hourly_i = np.trunc((hourly/(0.25*u.day)).to(u.dimensionless_unscaled)).astype(np.int)
         test_ind = samp_fn.get_index(hourly)
         self.assertTrue(np.all(test_ind == hourly_i))
+        
+    def test_xzero_create(self) : 
+        """tests for correct offset when x-intercept is provided to constructor"""
+        samp_fn = q.LinearSamplingFunction(1./(3*u.day), offset=4, x_zero=24*u.day)
+        self.assertEqual(-8,samp_fn.offset)
+        self.assertEqual(0,samp_fn.get_index(24*u.day))
+        self.assertEqual(1,samp_fn.get_index(27*u.day))
 
                 
 class TestLongitudeSamplingFunction(unittest.TestCase) : 
@@ -69,6 +76,61 @@ class TestTimeSinceEpochFunction(unittest.TestCase) :
         indices = tse.get_index(times)
         
         self.assertTrue(np.all(indices == np.trunc(control_vals)))
+
+class TestOrthoIndexer (unittest.TestCase) : 
+    def test_1d_identity(self) :
+        """tests the 1d case"""
+        oi = q.OrthoIndexer([q.IdentitySamplingFunction()])
+        self.assertEqual(4, oi.get_index([4])[0])
+        
+    def test_2d_identity(self) :
+        """tests the 2d case"""
+        oi = q.OrthoIndexer([q.IdentitySamplingFunction()]*2)
+        self.assertTrue( np.all( (4,5) == oi.get_index([4,5])))
+        
+    def test_transitive(self) : 
+        """ensure that underlying operation is applied"""
+        ops = [q.LinearSamplingFunction(1/u.day,-5), q.IdentitySamplingFunction()]
+        oi = q.OrthoIndexer(ops)
+        self.assertTrue( np.all( (0,3) == oi.get_index( (5*u.day,3) )))
+        
+class TestUnitIndexNdArray(unittest.TestCase) : 
+    def setUp(self) : 
+        # test scenario is "(latitude, longitude, time)"
+        self.data = np.arange(27).reshape(3,3,3)
+        
+        # axis 0: one sample per 30 deg latitude
+        lats = q.LinearSamplingFunction(1./(30*u.deg))
+        
+        # axis 1: one sample per 60 deg longitude
+        lons = q.LinearSamplingFunction(1./(60*u.deg))
+        
+        #axis 2: one sample per week
+        times = q.TimeSinceEpochFunction(7*u.day, time.Time('2002:001',format='yday'))
+        self.indexer = q.OrthoIndexer([lats, lons, times])
+        
+        self.ui_array = q.UnitIndexNdArray(self.data, self.indexer)
+        
+    def test_attributes(self) : 
+        """make sure things go where they're supposed to"""
+        self.assertIs(self.indexer, self.ui_array.indexer)
+        self.assertIs(self.data, self.ui_array.array)
+        
+    def test_get(self):
+        """check that we can retrieve values"""
+        target_i = (1,0,2)
+        target = (40*u.deg, 50*u.deg, time.Time('2002:15', format='yday')) 
+        self.assertTrue(np.all( target_i == self.indexer.get_index(target)))
+        self.assertEqual(self.data[target_i], self.ui_array.get(target))
+        
+    def test_put(self):  
+        """check that we can store values in the array"""
+        target_i = (2,0,1)
+        target = (70*u.deg, 50*u.deg, time.Time('2002:11', format='yday')) 
+        self.assertTrue(np.all( target_i == self.indexer.get_index(target)))
+        self.ui_array.put(target, 5000)
+        self.assertEqual(self.data[target_i], 5000)
+        self.assertEqual(self.ui_array.get(target), 5000)
         
 
 class TestLookupTable (unittest.TestCase) : 
