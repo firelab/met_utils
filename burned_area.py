@@ -56,6 +56,8 @@ def ba_year(year, template, ncfile, shapefile)  :
             # convert to UTC if necessary
             if dt.tzinfo is not None: 
                 dt = (dt - dt.utcoffset()).replace(tzinfo=None)
+                if dt.timetuple()[7] >= 366 : 
+                    continue
             t_obj = time.Time(dt)
         
             # increment the correct counter
