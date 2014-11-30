@@ -236,6 +236,7 @@ def indices_year(y, forcing_template, out_template) :
     # copy basic data
     ds.copyVariable('nav_lat')
     ds.copyVariable('nav_lon')
+
     
     print "Variables copied from forcing file"
     
@@ -263,6 +264,10 @@ def indices_year(y, forcing_template, out_template) :
     t_min = ds.create_variable("t_min", ('days','land'), np.float32)
     t_min.long_name = "minimum temperature for the 24 hours preceeding burning period"
     t_min.units = "K"
+    
+    t_max = ds.create_variable("t_max", ('days', 'land'), np.float32)
+    t_max.long_name = "maximum temperature for the 24 hours preceeding burning period"
+    t_max.units = "K"
     
     t_afternoon = ds.create_variable("t_afternoon", ('days','land'), np.float32)
     t_afternoon.long_name = "mid-burning-period temperature"
@@ -335,8 +340,9 @@ def indices_year(y, forcing_template, out_template) :
         daylength_lut = ds.get_daylength_lookup(day)
         daylength[i_day,:] = daylength_lut.values
         
-        # pull out/store minimim and afternoon temps
+        # pull out/store minimum, maximum and afternoon temps
         t_min[i_day,:] = tair.min(unitted=False)
+        t_max[i_day,:] = tair.max(unitted=False)
         t_afternoon[i_day,:] = tair.ref_val(unitted=False)
         
         # calculate RH & store
