@@ -26,7 +26,7 @@ class BurnedAreaShapefile ( object )  :
         self.layer = self.dataSource.GetLayer()
         self.layerName = self.layer.GetName()
         
-        self._get_landcover_codes(self) 
+        self._get_landcover_codes() 
         
     def _get_landcover_codes(self) :
         sql =  "SELECT DISTINCT LANDCOVER FROM '%s' ORDER BY LANDCOVER" % self.layerName
@@ -78,16 +78,29 @@ class BurnedAreaCounts (agg.NetCDFTemplate) :
         self.lc_idx = q.CoordinateVariableSamplingFunction(landcover_codes)
         
         #create the netcdf variable
-        self.count = self.create_variable('count', ('y','x','landcover','days'), np.int32)
+        self.count = self.create_variable('count', ('y','x','landcover','days'), np.int16,
+                        chunk=(self.y, self.x, self.landcover,1))
+        self.last_day = -1
         
     def new_cache(self) : 
         """creates a new cache for a single day's data"""
-        cache = np.zeros( (self.y, self.x, self.landcover), dtype=np.int32)
+        cache = np.zeros( (self.y, self.x, self.landcover), dtype=np.int16)
         idx   = q.OrthoIndexer( [self.lat_idx,self.lon_idx, self.lc_idx])
         return q.UnitIndexNdArray(cache, idx)
         
     def put_cache(self, cache, day) : 
-        """stores the cache for a day's data into the file"""
+        """stores the cache for a day's data into the file
+        
+        If a day (or more) has been skipped, write zeros to the 
+        intervening days...
+        """
+        print day
+        if self.last_day != (day-1) : 
+            zeros = self.new_cache()
+            for d in range(self.last_day+1, day) : 
+                print d
+                self.count[...,d] = zeros.array
+        self.last_day = day
         self.count[...,day] = cache.array
         
 
@@ -112,7 +125,7 @@ def ba_year(year, template, ncfile, shapefile)  :
             if dt.timetuple()[7] >= 366 : 
                 continue
         t_obj = time.Time(dt)
-        i_day = bac.time_idx.get_index(t_obj)
+        i_day = bac.time_idx.get_index(t_obj).value
         
         # if new day, advance to the next day, get a new cache
         if i_day != day : 
