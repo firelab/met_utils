@@ -78,7 +78,21 @@ class IdentitySamplingFunction (SamplingFunction) :
     def get_index(self, unit_val) : 
         """just passes unit_val through"""
         return unit_val 
+
+class CoordinateVariableSamplingFunction (SamplingFunction)  :
+    """looks up index based on value of a coordinate variable
     
+    Named after the NetCDF concept of a "coordinate variable", which is a 
+    1D variable the length of an axis, this sampling function looks up the 
+    index based on the position of the given value in a "coordinate variable" 
+    array
+    """ 
+    def __init__(self, cv) : 
+        self.cv = cv
+        
+    def get_index(self, unit_val) : 
+        return self.cv.index(unit_val)   
+            
 class OrthoIndexer (SamplingFunction)  : 
     """Combines multiple SampleFunctions into one
     
