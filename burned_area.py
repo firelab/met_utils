@@ -16,6 +16,7 @@ import trend
 from osgeo import ogr
 
 
+FOREST_LC = range(1,6)
 
 class BurnedAreaShapefile ( object )  :
     """encapsulates some characteristics of the Burned Area Shapefiles"""
@@ -164,20 +165,25 @@ def ba_compare_year(indicesfile, bafile, outfile=None) :
     alldata = []
 
     for day in range(len(ba.dimensions['days'])) : 
-        # compress the count
-        day_count = ca.compress(count[...,day])
-
-        # find nonzero counts
-        i_nonzero = np.nonzero(day_count)
-
-        # construct dataframe for this day
-        todays_data = {"BA Count" : day_count[i_nonzero]}
-
-        for v in indicesvars : 
-            day_v = indices.variables[v][day,:]
-            todays_data[v] = day_v[i_nonzero]
-
-        alldata.append( pd.DataFrame( todays_data ) ) 
+        day_data = [] 
+        for lc in range(len(ba.dimensions['landcover'])) : 
+            
+            # compress the count
+            lc_count = ca.compress(count[...,lc,day])
+    
+            # find nonzero counts
+            i_nonzero = np.nonzero(lc_count)
+    
+            # construct dataframe for this landcover code
+            lc_data = {"BA Count" : lc_count[i_nonzero]}
+    
+            for v in indicesvars : 
+                day_v = indices.variables[v][day,:]
+                lc_data[v] = day_v[i_nonzero]
+    
+            day_data.append( pd.DataFrame( lc_data ) )
+            
+        alldata.append(pd.concat(day_data, keys=range(len(ba.dimensions['landcover'])))) 
 
     all_data_frame = pd.concat(alldata, keys=range(len(ba.dimensions['days'])))
 
