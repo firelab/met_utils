@@ -6,6 +6,7 @@ points onto a low-resolution grid.
 
 import qty_index as q
 import numpy as np
+import numpy.ma as ma
 import netCDF4 as nc
 import astropy.units as u
 import astropy.time as time
@@ -163,29 +164,35 @@ def ba_compare_year(indicesfile, bafile, outfile=None) :
     ca = trend.CompressedAxes(indices, 'land')
 
     alldata = []
+    days = [] 
 
     for day in range(len(ba.dimensions['days'])) : 
         day_data = [] 
+        active_lc = [] 
         for lc in range(len(ba.dimensions['landcover'])) : 
             
             # compress the count
             lc_count = ca.compress(count[...,lc,day])
     
             # find nonzero counts
-            i_nonzero = np.nonzero(lc_count)
+            i_nonzero = ma.nonzero(lc_count)
     
-            # construct dataframe for this landcover code
-            lc_data = {"BA Count" : lc_count[i_nonzero]}
+            if len(i_nonzero[0]) > 0 : 
+                # construct dataframe for this landcover code
+                lc_data = {"BA Count" : lc_count[i_nonzero]}
     
-            for v in indicesvars : 
-                day_v = indices.variables[v][day,:]
-                lc_data[v] = day_v[i_nonzero]
+                for v in indicesvars : 
+                    day_v = indices.variables[v][day,:]
+                    lc_data[v] = day_v[i_nonzero]
     
-            day_data.append( pd.DataFrame( lc_data ) )
+                day_data.append( pd.DataFrame( lc_data ) )
+                active_lc.append(lc)
             
-        alldata.append(pd.concat(day_data, keys=range(len(ba.dimensions['landcover'])))) 
+        if len(day_data) > 0 : 
+            alldata.append(pd.concat(day_data, keys=active_lc)) 
+            days.append(day)
 
-    all_data_frame = pd.concat(alldata, keys=range(len(ba.dimensions['days'])))
+    all_data_frame = pd.concat(alldata, keys=days)
 
     if outfile is not None : 
         all_data_frame.to_csv(outfile)
