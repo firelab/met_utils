@@ -186,7 +186,7 @@ def ba_compare_year(indicesfile, bafile, outfile=None) :
                     lc_data[v] = day_v[i_nonzero]
     
                 day_data.append( pd.DataFrame( lc_data ) )
-                active_lc.append(lc)
+                active_lc.append(ba.variables['landcover'][lc])
             
         if len(day_data) > 0 : 
             alldata.append(pd.concat(day_data, keys=active_lc)) 
