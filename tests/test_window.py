@@ -127,6 +127,57 @@ class TestMovingWindow (unittest.TestCase) :
         mw = w.MovingWindow(self.x.shape, 0, 4, initial_value=20*u.pct)
         self.assertTrue(np.all(mw.buffer[:] == 20))
         
-                    
+class TestSequenceWindow(unittest.TestCase) : 
+    def setUp(self) : 
+        self.x = np.array( [ [ True, False, False, True ] ,
+                             [ True, False, True,  False] , 
+                             [ True, True,  True,  True ] ,
+                             [ True, True,  True,  False] ])
+                             
+    def test_false_default(self) : 
+        """by default, all items in buffer are false"""
+        sw = w.SequenceWindow(self.x.shape, 0, 2)
+        self.assertFalse(np.any(sw.buffer))
         
+    def test_init_true(self) : 
+        """can override so that buffer starts true"""
+        sw = w.SequenceWindow(self.x.shape, 0, 2, initial_value=True)
+        self.assertTrue(np.all(sw.buffer)) 
+        
+    def test_last_run(self) : 
+        """Ensure that we can count True values from the most recent addition"""
+        sw = w.SequenceWindow(self.x.shape, 0, 2)
+        
+        # no runs on initial object
+        self.assertTrue(np.all(sw.last_run_length() == 0))
+        
+        sw.put(self.x[0,:])
+        self.assertTrue(np.all(sw.last_run_length() == np.array([1,0,0,1])))
+        
+        sw.put(self.x[1,:])
+        self.assertTrue(np.all(sw.last_run_length() == np.array([2,0,1,0])))
+                    
+        sw.put(self.x[2,:])
+        self.assertTrue(np.all(sw.last_run_length() == np.array([2,1,2,1])))
+        
+        sw.put(self.x[3,:])
+        self.assertTrue(np.all(sw.last_run_length() == np.array([2,2,2,0])))
 
+    def test_all_runs(self) : 
+        """ensure that weighted run counter works"""
+        sw = w.SequenceWindow(self.x.shape, 0, 3)
+        
+        # no runs on initial object
+        self.assertTrue(np.all(sw.all_runs() == 0))
+        
+        sw.put(self.x[0,:])
+        self.assertTrue(np.all(sw.all_runs() == np.array([1,0,0,1])))
+        
+        sw.put(self.x[1,:])
+        self.assertTrue(np.all(sw.all_runs() == np.array([3,0,1,1])))
+
+        sw.put(self.x[2,:])
+        self.assertTrue(np.all(sw.all_runs() == np.array([6,1,3,2])))
+
+        sw.put(self.x[3,:])
+        self.assertTrue(np.all(sw.all_runs() == np.array([6,3,6,1])))

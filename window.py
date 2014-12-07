@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Implements moving window functionality along one dimension of an array-like.
 
@@ -34,7 +35,7 @@ class MovingWindow (object) :
         else : 
             self.buffer[:] = u.Quantity(initial_value, unit=unit)
 
-                
+
     def put(self, data) : 
         """puts the next slice of data into the buffer"""
         #convert if necessary
@@ -89,5 +90,78 @@ class MovingWindow (object) :
         """
         return self.num_puts >= self.window_size
         
+class SequenceWindow (MovingWindow) :
+    """A moving window which accumulates a history of cells which meet a criteria
+    
+    A SequenceWindow deals in slices of boolean type. A true value in a cell 
+    means that the criteria has been met, a false value means that the criteria
+    has not been met. The class provides the ability to analyze the history
+    present in the buffer, for each cell. 
+    """
+    def __init__(self, shape, window_axis, window_size,  
+                  initial_value=False) :
+        super(SequenceWindow, self).__init__(shape, window_axis, window_size,
+                dtype=np.bool, initial_value=initial_value)        
         
+    def last_run_length(self) : 
+        """calculates the "run length" at each cell
         
+        Starting with the last slice added and proceeding to previous slices, 
+        count the number of sequential true values. Quit counting when a false
+        value is encountered. A False value in the current slice means the cell
+        gets a zero value.
+        """
+        run = None
+        done = None
+        for i in range(self.window_size-1, -1, -1) : 
+            cur = self.get(i)
+            
+            if run is None : 
+                run = np.zeros( cur.shape, dtype=np.int )
+                done = np.zeros( cur.shape, dtype=np.bool )
+            
+            # gate off the cells which have a False value
+            done = np.logical_or(done, np.logical_not(cur))
+  
+            # increment cells which are not done
+            run[np.logical_not(done)] += 1
+            
+        return run
+                
+            
+        
+    def all_runs(self) : 
+        """counts all runs in the buffer
+        
+        The value returned for each cell is a weighted sum of the contiguous
+        slices containing a True value for that cell. The weighting is designed 
+        to return a larger number for sequential runs of True values than it
+        would return for the same number of True values separated by False
+        values.
+        
+        This algorithm came from [1].
+        
+        [1] Flannigan, M. D. & Harrington, J. B. A Study of the Relation of 
+        Meteorological Variables to Monthly Provincial Area Burned by Wildfire 
+        in Canada (1953–80). J. Appl. Meteor. 27, 441–452 (1988).
+        """
+        run = None
+        cum_run = None
+        for i in range(self.window_size) : 
+            cur = self.get(i)
+            
+            if run is None : 
+                run = np.zeros( cur.shape, dtype=np.int)
+                cum_run = np.zeros( cur.shape, dtype = np.int)
+                
+            # increment run counter for all True cells
+            run[ cur ] += 1
+            
+            # reset run counter for all false cells
+            run[np.logical_not(cur)] = 0
+            
+            # accumulate 
+            cum_run += run
+            
+        return cum_run
+            
