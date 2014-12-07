@@ -16,6 +16,10 @@ import met_functions as met
 import window as w
 import sun
 import gsi
+import precipitation as p
+
+
+DRY_DAY_PRECIP = (1.5 * u.mm).to(u.kg/(u.m**2), equivalencies=p.precipitation())
 
 class ForcingDataset ( agg.NetCDFTemplate ) :
     """Class manages the computation of indices from ORCHIDEE forcing data.
@@ -298,6 +302,15 @@ def indices_year(y, forcing_template, out_template) :
     precip.long_name = "Duration of precipitation"
     precip.units = 'hours'
     
+    tot_precip = ds.create_variable('total_precip', ('days','land'), np.float32)
+    tot_precip.long_name = 'total precipitation over last 24 hours'
+    tot_precip.units = 'kg / m^2'
+    
+    dd_days = 30
+    dd = ds.create_variable('dd', ('days','land'), np.int)
+    dd.long_name = 'dry day weighting (%d day window)' % dd_days
+    dd.units = 'none'
+    
     eqmc_bar = ds.create_variable('eqmc_bar', ('days','land'), np.float32)
     eqmc_bar.long_name = 'Weighted daily average equilibrium moisture content'
     eqmc_bar.units = 'percent'
@@ -323,6 +336,9 @@ def indices_year(y, forcing_template, out_template) :
     
     # moving window of GSI data
     gsi_window = w.MovingWindow(i_gsi.shape, 0, gsi_days)
+    
+    # moving window to compute dry day weights
+    dd_window = w.SequenceWindow(dd.shape, 0, dd_days)
     
     # initialize fuel moisture calculators
     fm1000_calc = fm.ThousandHourFM(fm1000.shape, 0)
@@ -376,6 +392,12 @@ def indices_year(y, forcing_template, out_template) :
         # calculate precipitation duration and store
         precip_val = ds.compute_precip_duration()
         precip[i_day,:] = precip_val
+        
+        # calculate total precip over last 24 hours, and dry day flag
+        tot_precip_val = (rainf.sum() * (1*u.day)).to(u.kg/(u.m**2))
+        tot_precip[i_day,:] = tot_precip_val
+        dd_window.put( tot_precip_val < DRY_DAY_PRECIP )
+        dd[i_day,:] = dd_window.all_runs()
         
         # calculate daily avg equilibrium moisture content
         eqmc_bar_val = ds.compute_eqmc_bar(cell_daylengths)
