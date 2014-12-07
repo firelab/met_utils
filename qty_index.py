@@ -336,6 +336,12 @@ class DiurnalLocalTimeStatistics (object) :
             result = result * self.unit
         return result
         
+    def sum(self, unitted=True) : 
+        result = self.buffer_masked.sum(axis=self.time_axis).data
+        if unitted and self.unit != unspecified_u : 
+            result = result * self.unit
+        return result
+        
     def ref_val(self, unitted=True) : 
         """returns the variable's instantaneous value at the reference time
         
