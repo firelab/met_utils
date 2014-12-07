@@ -394,7 +394,7 @@ def indices_year(y, forcing_template, out_template) :
         precip[i_day,:] = precip_val
         
         # calculate total precip over last 24 hours, and dry day flag
-        tot_precip_val = (rainf.sum() * (1*u.day)).to(u.kg/(u.m**2))
+        tot_precip_val = (rainf.sum() * ds.get_timestep()).to(u.kg/(u.m**2))
         tot_precip[i_day,:] = tot_precip_val
         dd_window.put( tot_precip_val < DRY_DAY_PRECIP )
         dd[i_day,:] = dd_window.all_runs()
