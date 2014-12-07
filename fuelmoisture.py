@@ -168,7 +168,7 @@ def oneten_ofdm(temp, rh, srad, fm_100) :
         Operational Tool for Mesoscale Fire Danger Rating in Oklahoma.” 
         International Journal of Wildland Fire 11 (4): 183–91.
     """
-    
+    temp = temp.to(u.deg_C, equivalencies=u.temperature())
     fuel_temp = (srad/SOLAR_CONST)*(13.9 * u.deg_C ) + temp
     fuel_rh   = (1 - 0.25*(srad/SOLAR_CONST))*rh
     

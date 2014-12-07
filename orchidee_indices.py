@@ -224,7 +224,7 @@ def indices_year(y, forcing_template, out_template) :
     tair = ds.register_variable("Tair", u.Kelvin)
     ds.register_variable("PSurf", u.Pa)
     rainf = ds.register_variable("Rainf", u.kg / (u.m**2) / u.s )
-#    swdown = ds.register_variable("SWdown")
+    swdown = ds.register_variable("SWdown", u.W / (u.m**2))
     
     print "NetCDF variables registered"
     # setup netcdf dimensions in output file
@@ -310,6 +310,14 @@ def indices_year(y, forcing_template, out_template) :
     fm100.long_name = '100 hour fuel moisture'
     fm100.units = 'percent'
     
+    fm10 = ds.create_variable('fm10', ('days','land'), np.float32)
+    fm10.long_name = '10 hour fuel moisture'
+    fm10.units = 'percent'
+    
+    fm1 = ds.create_variable('fm1', ('days','land'), np.float32)
+    fm1.long_name = '1 hour fuel moisture'
+    fm1.units = 'percent'
+    
     print "Output NetCDF variables created"
     
     
@@ -375,7 +383,14 @@ def indices_year(y, forcing_template, out_template) :
         
         # calculate fuel moisture content
         fm1000[i_day,:] = fm1000_calc.compute(eqmc_bar_val, precip_val)
-        fm100[i_day,:]  = fm100_calc.compute(eqmc_bar_val, precip_val)
+        fm100_today  = fm100_calc.compute(eqmc_bar_val, precip_val)
+        fm100[i_day,:] = fm100_today
+        fm1_today, fm10_today = fm.oneten_ofdm(
+                t_afternoon[i_day,:]*u.K, 
+                rh_afternoon[i_day,:]*u.percent,
+                swdown.ref_val())
+        fm10[i_day,:] = fm10_today
+        fm1[i_day,:] = fm1_today                
                 
         
         # first time through, store the first day's data
