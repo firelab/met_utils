@@ -11,6 +11,7 @@ import netCDF4 as nc
 import astropy.units as u
 import astropy.time as time
 import aggregator as agg
+import reduce_var as rv
 import dateutil.parser as dup
 import pandas as pd
 import trend
@@ -151,11 +152,12 @@ def ba_year(year, template, ncfile, shapefile)  :
     bac.close()
     
 
-def ba_compare_year(indicesfile, bafile, outfile=None, support=None) : 
+def ba_compare_year(indicesfile, bafile, outfile=None, support=None, reduction=None) : 
     """collates the various indices with burned area counts"""
 
     # interesting variables from the indicesfile
     indicesvarnames = ['gsi_avg','fm1000','fm100','fm10','fm1','dd','t_max']
+    last_val_reduce = ['dd']
 
     indices = nc.Dataset(indicesfile)
     indicesvars = [indices.variables[v] for v in indicesvarnames]
@@ -168,19 +170,33 @@ def ba_compare_year(indicesfile, bafile, outfile=None, support=None) :
         supportvars.remove('land')
         indicesvarnames.extend(supportvars)
         indicesvars.extend([s.variables[v] for v in supportvars])
+        last_val_reduce.extend(supportvars)
+    
+    time_samples = len(ba.dimensions['days'])  
+    if reduction is not None : 
+        grid_reducer = rv.ReduceVar(count.shape, 3, reduction)
+        cmp_reducer  = rv.ReduceVar(indicesvars[0].shape, 0, reduction)
+        time_samples = grid_reducer.reduced
 
     ca = trend.CompressedAxes(indices, 'land')
 
     alldata = []
     days = [] 
 
-    for day in range(len(ba.dimensions['days'])) : 
+    for i_time in range(time_samples) : 
         day_data = [] 
         active_lc = [] 
+        
+
+        if reduction is None :
+            count_slice = count[...,i_time]
+        else :
+            count_slice = grid_reducer.sum(i_time, count)  
+            
         for lc in range(len(ba.dimensions['landcover'])) : 
             
             # compress the count
-            lc_count = ca.compress(count[...,lc,day])
+            lc_count = ca.compress(count_slice[:,:,lc])
     
             # find nonzero counts
             i_nonzero = ma.nonzero(lc_count)
@@ -190,7 +206,17 @@ def ba_compare_year(indicesfile, bafile, outfile=None, support=None) :
                 lc_data = {"BA Count" : lc_count[i_nonzero]}
     
                 for n,v in zip(indicesvarnames,indicesvars) : 
-                    day_v = v[day,:]
+                    # reduce variable if necessary
+                    if reduction is None: 
+                        day_v = v[i_time,:]
+                    else : 
+                        # the last value of the dry day sequence is 
+                        # representative of the reduced time period
+                        if n in last_val_reduce : 
+                            day_v = cmp_reducer.last_val(i_time, v)
+                        else : 
+                            day_v = cmp_reducer.mean(i_time, v)
+                        
                     lc_data[n] = day_v[i_nonzero]
     
                 day_data.append( pd.DataFrame( lc_data ) )
@@ -198,7 +224,7 @@ def ba_compare_year(indicesfile, bafile, outfile=None, support=None) :
             
         if len(day_data) > 0 : 
             alldata.append(pd.concat(day_data, keys=active_lc)) 
-            days.append(day)
+            days.append(i_time)
 
     all_data_frame = pd.concat(alldata, keys=days)
 
