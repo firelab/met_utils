@@ -151,15 +151,23 @@ def ba_year(year, template, ncfile, shapefile)  :
     bac.close()
     
 
-def ba_compare_year(indicesfile, bafile, outfile=None) : 
+def ba_compare_year(indicesfile, bafile, outfile=None, support=None) : 
     """collates the various indices with burned area counts"""
 
     # interesting variables from the indicesfile
-    indicesvars = ['gsi_avg','fm1000','fm100']
+    indicesvarnames = ['gsi_avg','fm1000','fm100','fm10','fm1','dd','t_max']
 
     indices = nc.Dataset(indicesfile)
+    indicesvars = [indices.variables[v] for v in indicesvarnames]
     ba = nc.Dataset(bafile)
     count = ba.variables['count']
+
+    if support is not None : 
+        s = nc.Dataset(support)
+        supportvars = list(s.variables.keys())
+        supportvars.remove('land')
+        indicesvarnames.extend(supportvars)
+        indicesvars.extend([s.variables[v] for v in supportvars])
 
     ca = trend.CompressedAxes(indices, 'land')
 
@@ -181,9 +189,9 @@ def ba_compare_year(indicesfile, bafile, outfile=None) :
                 # construct dataframe for this landcover code
                 lc_data = {"BA Count" : lc_count[i_nonzero]}
     
-                for v in indicesvars : 
-                    day_v = indices.variables[v][day,:]
-                    lc_data[v] = day_v[i_nonzero]
+                for n,v in zip(indicesvarnames,indicesvars) : 
+                    day_v = v[day,:]
+                    lc_data[n] = day_v[i_nonzero]
     
                 day_data.append( pd.DataFrame( lc_data ) )
                 active_lc.append(ba.variables['landcover'][lc])
