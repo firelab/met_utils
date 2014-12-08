@@ -19,9 +19,10 @@ class ReduceVar (object) :
         User specifies the shape of variables which this object can work on, 
         the agg_axis which is to be reduced, and the reduction factor.
         """
-        self.shape = shape
-        self.agg_axis = agg_axis
+        self.shape     = shape
+        self.agg_axis  = agg_axis
         self.reduction = reduction
+        self.reduced   = shape[agg_axis] / reduction
         
     def _selection(self, i_agg) :
         """computes and returns an index to select the region to be summarized
@@ -54,3 +55,9 @@ class ReduceVar (object) :
         """computes the i_agg-th slice of reduced data from v using the sum"""
         i = self._selection(i_agg)
         return ma.sum(v[i], axis=self.agg_axis)
+
+    def last_val(self, i_agg, v) : 
+        """computes the i_agg-th slice of reduced data from v using the last value"""
+        i = self._selection(i_agg)
+        i[self.agg_axis] = ((i_agg+1)*self.reduction)-1
+        return v[i]

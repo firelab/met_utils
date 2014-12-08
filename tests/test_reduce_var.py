@@ -65,3 +65,20 @@ class TestReduceVar (unittest.TestCase) :
                             
         self.assertTrue( np.all(self.reduce.sum(1, self.y) ==
                             np.sum(self.y[4:8,:], axis=0)))
+
+    def test_last_value(self) : 
+        """ensure last value reduction works"""
+        self.assertTrue( np.all(self.reduce.last_val(0, self.x) ==
+                            self.x[3,:]))
+                            
+        self.assertTrue( np.all(self.reduce.last_val(1, self.x) ==
+                            self.x[7,:]))
+        
+        self.assertTrue( np.all(self.reduce.last_val(0, self.y).mask))
+                            
+        self.assertTrue( np.all( self.reduce.last_val(1, self.y) ==
+                            self.y[7,:]))
+                            
+    def test_size_calc(self) : 
+        """ensure we calculate the reduced axis size correctly"""
+        self.assertEqual(self.reduce.reduced, 2)
