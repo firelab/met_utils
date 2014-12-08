@@ -191,7 +191,7 @@ def ba_compare_year(indicesfile, bafile, outfile=None, support=None, reduction=N
         if reduction is None :
             count_slice = count[...,i_time]
         else :
-            count_slice = grid_reducer.sum(i_time, count)  
+            count_slice = np.array(grid_reducer.sum(i_time, count))
             
         for lc in range(len(ba.dimensions['landcover'])) : 
             
