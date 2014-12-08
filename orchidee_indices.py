@@ -410,7 +410,7 @@ def indices_year(y, forcing_template, out_template) :
         fm1_today, fm10_today = fm.oneten_ofdm(
                 t_afternoon[i_day,:]*u.K, 
                 rh_afternoon[i_day,:]*u.percent,
-                swdown.ref_val())
+                swdown.ref_val(), fm100_today)
         fm10[i_day,:] = fm10_today
         fm1[i_day,:] = fm1_today                
                 
