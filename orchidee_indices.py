@@ -19,7 +19,7 @@ import gsi
 import precipitation as p
 
 
-DRY_DAY_PRECIP = (1.5 * u.mm).to(u.kg/(u.m**2), equivalencies=p.precipitation())
+DRY_DAY_PRECIP = (3.0 * u.mm).to(u.kg/(u.m**2), equivalencies=p.precipitation())
 
 class ForcingDataset ( agg.NetCDFTemplate ) :
     """Class manages the computation of indices from ORCHIDEE forcing data.
