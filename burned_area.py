@@ -172,18 +172,19 @@ def ba_compare_year(indicesfile, bafile, outfile=None, support=None, reduction=N
         indicesvars.extend([s.variables[v] for v in supportvars])
         last_val_reduce.extend(supportvars)
     
-    time_samples = len(ba.dimensions['days'])  
+    # workaround: bug in index calculator does not calculate last day.
+    time_samples = range(1,len(ba.dimensions['days']) - 1)
     if reduction is not None : 
         grid_reducer = rv.ReduceVar(count.shape, 3, reduction)
         cmp_reducer  = rv.ReduceVar(indicesvars[0].shape, 0, reduction)
-        time_samples = grid_reducer.reduced
+        time_samples = range(grid_reducer.reduced)
 
     ca = trend.CompressedAxes(indices, 'land')
 
     alldata = []
     days = [] 
 
-    for i_time in range(time_samples) : 
+    for i_time in time_samples : 
         day_data = [] 
         active_lc = [] 
         
