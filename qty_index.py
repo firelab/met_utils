@@ -3,6 +3,7 @@ import numpy as np
 import numpy.ma as ma
 import astropy.units as u
 import astropy.coordinates as c
+import scipy.spatial as sp
 
 # cannot compare "unit" objects to python's None. 
 # creating an "unspecified" fundamental unit to signify that 
@@ -34,7 +35,7 @@ class LinearSamplingFunction ( SamplingFunction ) :
         self.offset = offset
         
     def get_index(self, unit_val) :
-        index = (unit_val*self.scale + self.offset).to(u.dimensionless_unscaled)
+        index = u.Quantity(unit_val*self.scale + self.offset, unit=u.dimensionless_unscaled)
         return np.trunc(index).astype(np.int)
         
 class TimeSinceEpochFunction ( SamplingFunction ) : 
@@ -86,6 +87,9 @@ class CoordinateVariableSamplingFunction (SamplingFunction)  :
     1D variable the length of an axis, this sampling function looks up the 
     index based on the position of the given value in a "coordinate variable" 
     array
+    
+    Note that currently this only works if the exact value you are searching
+    for is in the coordinate variable.
     """ 
     def __init__(self, cv) : 
         self.cv = cv
@@ -112,6 +116,7 @@ class OrthoIndexer (SamplingFunction)  :
         for i in range(len(self.sample_functions)) : 
             ret[i] = self.sample_functions[i].get_index(unit_val[i])
         return tuple(ret) 
+
 
 class UnitIndexNdArray (object) : 
     """provides single-element access to ndarray using unitted quantities"""
