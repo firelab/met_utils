@@ -1,5 +1,5 @@
 """Code to aggregate values along one dimension of an ndarray."""
-
+import numpy as np
 import numpy.ma as ma
 
 
@@ -59,5 +59,38 @@ class ReduceVar (object) :
     def last_val(self, i_agg, v) : 
         """computes the i_agg-th slice of reduced data from v using the last value"""
         i = self._selection(i_agg)
-        i[self.agg_axis] = ((i_agg+1)*self.reduction)-1
+        i[self.agg_axis] = (i[self.agg_axis].stop-1)
         return v[i]
+
+
+class CutpointReduceVar ( ReduceVar )  :
+    """Allows a user to specify an array of cutpoints which define bins"""
+    
+    def __init__(self, shape, agg_axis, cutpoints)  :
+        """Creates a new object to segment an array using a series of cutpoints
+        
+        Cutpoints are the edges, and the min/max must be included. There are 
+        always one fewer intervals than cutpoints. The i_agg index refers to
+        an interval defined by two bounding cutpoints (e.g., i_agg=0 means to 
+        select all data points between cutpoints 0 and 1.)
+        """
+        self.shape = shape
+        self.agg_axis = agg_axis
+        self.cutpoints = cutpoints
+        self.reduced = len(cutpoints) - 1
+
+        
+    def _selection(self, i_agg) :
+        """computes and returns an index to select the region to be summarized
+        
+        caller specifies the index along the reduced aggregation axis, and 
+        the slice expression into the original variable is returned.
+        
+        i_agg of 0 means to select all values between cutpoints[0] and cutpoints[1]
+        """
+        i = [ slice(None,None,None)] * len(self.shape) 
+        begin = self.cutpoints[i_agg]
+        end = self.cutpoints[i_agg+1]
+        i[self.agg_axis] = slice(begin, end)
+        return i
+        

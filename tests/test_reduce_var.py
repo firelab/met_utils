@@ -82,3 +82,17 @@ class TestReduceVar (unittest.TestCase) :
     def test_size_calc(self) : 
         """ensure we calculate the reduced axis size correctly"""
         self.assertEqual(self.reduce.reduced, 2)
+        
+class TestCutpointReduceVar (unittest.TestCase) : 
+    def setUp(self) : 
+        self.x = np.arange(33).reshape( (11,3) )
+        self.reduce = rv.CutpointReduceVar(self.x.shape, 0, (0,5,11))
+        
+    def test_last_value(self) : 
+        """check that the cutpoints are correct"""
+        res = self.reduce.last_val(0, self.x)
+        self.assertTrue(np.all(res == self.x[4,:]))
+        res = self.reduce.last_val(1, self.x)
+        self.assertTrue(np.all(res == self.x[10,:]))
+        
+    
