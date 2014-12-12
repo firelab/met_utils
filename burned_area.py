@@ -18,7 +18,35 @@ import trend
 from osgeo import ogr
 
 
+# MOD12 landcover classification codes, broken down into 
+# forest and not forest.
 FOREST_LC = range(1,6)
+NONFOREST_LC = range(6,11)
+
+def landcover_classification(v) : 
+    """returns indices of breakpoints between landcover classification
+
+    Given a sorted coordinate variable v, this function returns a 
+    four element sequence which gives the indices of the breakpoints
+    between landcover classes. The landcover classes are "forest", "nonforest",
+    and "other". The codes for these classes are given in
+    FOREST_LC and NONFOREST_LC, with a third class constructed from
+    landcover codes greater than the last value contained in NONFOREST_LC.
+    """
+    edges = [ 0 ]
+    state = 'f'
+    for i in range(len(v)) : 
+        if state == 'f' : 
+            if v[i] in FOREST_LC : continue
+            edges.append(i)
+            state = 'nf'
+        if state == 'nf' : 
+            if v[i] in NONFOREST_LC : continue
+            edges.extend( (i, len(v)) )
+            break
+    if len(edges) == 2 :
+        edges.extend( [len(v)]*2 ) 
+    return edges
 
 class BurnedAreaShapefile ( object )  :
     """encapsulates some characteristics of the Burned Area Shapefiles"""
