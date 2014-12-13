@@ -32,6 +32,22 @@ class TestLinearSamplingFunction(unittest.TestCase) :
         self.assertEqual(0,samp_fn.get_index(24*u.day))
         self.assertEqual(1,samp_fn.get_index(27*u.day))
 
+    def test_minmaxbin(self) :
+        """tests initialization from minmaxbin flag"""
+        samp_fn = q.LinearSamplingFunction(minmaxbin=(-5,5,10), includemax=True)
+        self.assertTrue(samp_fn.includemax)
+        self.assertEqual(samp_fn.maxbin, 9)
+        self.assertEqual(samp_fn.maxval, 5)
+        self.assertEqual(0, samp_fn.get_index(-5))
+        self.assertEqual(9, samp_fn.get_index(5.))
+        self.assertEqual(5, samp_fn.get_index(0))
+
+        samp_fn = q.LinearSamplingFunction(minmaxbin=(-5,5,10), includemax=False)
+        self.assertFalse(samp_fn.includemax)
+        self.assertEqual(samp_fn.maxbin, 9)
+        self.assertEqual(samp_fn.maxval, 5)
+        self.assertEqual(10, samp_fn.get_index(5))
+
                 
 class TestLongitudeSamplingFunction(unittest.TestCase) : 
     def test_index_units(self):  

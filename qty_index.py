@@ -22,22 +22,39 @@ class LinearSamplingFunction ( SamplingFunction ) :
     
     When creating the object, "m" == scale and "b" == offset.
     """
-    def __init__(self, scale, offset=0, x_zero=None) :
+    def __init__(self, scale=None, offset=0, x_zero=None, minmaxbin=None,
+                 includemax=True) :
         """Initializes a LinearSamplingFunction object.
         
-        Two possible ways to initialize this object include specifying a 
-        precalculated offset, or specifying the "x" associated with
-        y=0. If both are specified, x_zero is used.
+        Three possible ways to initialize this object include specifying a 
+        scale factor with either a precalculated offset or the "x" associated with
+        y=0, or specifying a min/max/number of bins tuple.
         """
-        self.scale = scale
+        self.includemax = False
+
+        if scale is not None : 
+            self.scale = scale
+
+        if minmaxbin is not None : 
+            minval, maxval, num_bins = minmaxbin
+            self.scale = num_bins / (maxval - minval)
+            self.includemax = includemax
+            self.maxval = maxval
+            self.maxbin = num_bins-1
+            x_zero = minval
+
         if x_zero is not None:  
-            offset = -(scale * x_zero)
+            offset = -(self.scale * x_zero)
         self.offset = offset
         
     def get_index(self, unit_val) :
         index = u.Quantity(unit_val*self.scale + self.offset, unit=u.dimensionless_unscaled)
-        return np.trunc(index).astype(np.int)
+        int_index = np.trunc(index).astype(np.int)
+        if self.includemax : 
+            int_index = np.where(unit_val == self.maxval, self.maxbin, int_index)
+        return int_index
         
+
 class TimeSinceEpochFunction ( SamplingFunction ) : 
     """calculates an index given a timestamp
     
