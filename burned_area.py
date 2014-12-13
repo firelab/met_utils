@@ -336,7 +336,7 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) :
                     burned_forest.put_record(record, weight=ba_forest_cmp[i_land])
                     burned_weight += ba_forest_cmp[i_land]
                 if ba_nonforest_cmp[i_land] > 0 : 
-                    burned_nonforest.put_record(record, weight=ba_nonforest_cmp[i_land])
+                    burned_not_forest.put_record(record, weight=ba_nonforest_cmp[i_land])
                     burned_weight += ba_nonforest_cmp[i_land]
                 if ba_other_cmp[i_land] > 0 : 
                     burned_other.put_record(record, weight=ba_other_cmp[i_land])
@@ -345,7 +345,7 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) :
                     burned_total.put_record(record, weight=burned_weight) 
                     burned_occurrence.put_record(record)
 
-    return (occurrence, burned_occurrence, burned_forest, burned_nonforest, 
+    return (occurrence, burned_occurrence, burned_forest, burned_not_forest, 
             burned_other, burned_total)
 
 def ba_multiyear_histogram(years, ba_template, ind_template, ind_names, 
@@ -384,7 +384,7 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
             cv.binsize = binsize
 
         # store variables
-        names = [ 'occurrence', 'burned_occurrence', 'burned_forest', 'burned_nonforest',
+        names = [ 'occurrence', 'burned_occurrence', 'burned_forest', 'burned_not_forest',
                   'burned_other', 'burned_total'] 
         types = [ np.int32, np.int32, np.float64, np.float64, np.float64, np.float64]
         for name, hist, t in zip(names, histos, types) : 
