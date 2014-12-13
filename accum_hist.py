@@ -35,10 +35,9 @@ class AccumulatingHistogramdd (object)  :
     def _init_minmax(self, minmax, dtype) : 
         indexers = []
         shape = []
-        for ax_min, ax_max, ax_bins in minmax : 
-            scale = ax_bins/(ax_max-ax_min) 
-            indexers.append(q.LinearSamplingFunction(scale, x_zero=ax_min))
-            shape.append(ax_bins)
+        for cur_minmax in minmax : 
+            indexers.append(q.LinearSamplingFunction(minmaxbin=cur_minmax,includemax=True))
+            shape.append(cur_minmax[2])
         self._index = q.OrthoIndexer(indexers)
         self.H = np.zeros( shape, dtype=dtype) 
                 

@@ -12,7 +12,7 @@ class TestAccumulatingHistogram (unittest.TestCase) :
                              [1,0,2],
                              [1,1,0],
                              [5,2,0] ] )
-        self.bins = [ (0,6,6), (0,3,3), (-1,5,6) ] 
+        self.bins = [ (0,5,5), (0,2,2), (-1,5,6) ] 
                              
     def test_count(self) : 
         """does the counter work OK?"""
