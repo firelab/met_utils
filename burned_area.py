@@ -14,6 +14,8 @@ import aggregator as agg
 import reduce_var as rv
 import dateutil.parser as dup
 import pandas as pd
+import orchidee_indices as oi
+import accum_hist as ah
 import trend
 from osgeo import ogr
 
@@ -261,3 +263,142 @@ def ba_compare_year(indicesfile, bafile, outfile=None, support=None, reduction=N
         all_data_frame.to_csv(outfile)
 
     return all_data_frame
+
+
+def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) : 
+    """calculates combined index-oriented and MODIS BA oriented histograms
+    
+    Computes and returns six histograms using the minmax description 
+    provided. Two histograms involve only the indices, which are assumed 
+    to be computed at a coarse resolution such as 0.5 deg by 0.5 deg. 
+    These histograms are computed with a uniform weight of 1 for every 
+    occurrence. One represents all observed combinations of indices,
+    the other represents all combinations of indices observed to contain 
+    some level of burning. From these, unburned area for each combination
+    of indices can be derived.
+
+    The remaining four histograms represent high resolution burned area data
+    aggregated to the coarse resolution grid. It is assumed that landcover 
+    information is only available for the high resolution data. Separate
+    histograms are calculated for groups of landcover codes representing
+    forest, non-forest, and "other". These histograms, as well as a "total"
+    histogram, are weighted by the burned area observed to occur at each 
+    combination of indices. These four histograms represent only burned
+    area, and do not contain information from which unburned area may be 
+    derived.
+    """
+    num_ind = len(ind_files)
+    one_day = len(ind_files[0].dimensions['land'])
+    num_days = (len(ind_files[0].dimensions['days']) -2)
+    num_obs = num_days * one_day
+    num_bins = [10]*num_ind
+
+    # these two count 0.5 x 0.5 degree cells
+    occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
+    burned_occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
+
+    # these four count individual modis detections
+    burned_forest = ah.AccumulatingHistogramdd(minmax=minmax) 
+    burned_not_forest = ah.AccumulatingHistogramdd(minmax=minmax)
+    burned_other = ah.AccumulatingHistogramdd(minmax=minmax)
+    burned_total = ah.AccumulatingHistogramdd(minmax=minmax)
+
+    ca = trend.CompressedAxes(ind_files[0], 'land') 
+
+    for i_year in range(len(ind_files)) : 
+        indfile = ind_files[i_year]
+        bafile  = ba_files[i_year]
+        count   = bafile.variables['count']
+        lc_edges = landcover_classification(bafile.variables['landcover'][:])
+        lc_type = rv.CutpointReduceVar(count.shape[:-1], 2, lc_edges)
+        timelim = len(indfile.dimensions['days'])-1
+        filevars = [ indfile.variables[iname] for iname in indices_names ] 
+        for i_day in range(1,timelim) : 
+            print i_day
+            day_data = [ f[i_day,:] for f in filevars ]
+            ba_day = count[...,i_day]
+            ba_forest = lc_type.sum(0,ba_day)
+            ba_nonforest = lc_type.sum(1,ba_day)
+            ba_other     = lc_type.sum(2,ba_day)
+            
+            ba_forest_cmp = ca.compress(ba_forest)
+            ba_nonforest_cmp = ca.compress(ba_nonforest)
+            ba_other_cmp = ca.compress(ba_other)
+            
+            for i_land in range(one_day) : 
+                record = ma.array([ data[i_land] for data in day_data] )
+                # if any of our coordinates are masked out, skip to next record
+                if np.any(record.mask) : 
+                    continue
+                occurrence.put_record(record)
+                burned_weight= 0
+                if ba_forest_cmp[i_land] > 0 : 
+                    burned_forest.put_record(record, weight=ba_forest_cmp[i_land])
+                    burned_weight += ba_forest_cmp[i_land]
+                if ba_nonforest_cmp[i_land] > 0 : 
+                    burned_nonforest.put_record(record, weight=ba_nonforest_cmp[i_land])
+                    burned_weight += ba_nonforest_cmp[i_land]
+                if ba_other_cmp[i_land] > 0 : 
+                    burned_other.put_record(record, weight=ba_other_cmp[i_land])
+                    burned_weight += ba_other_cmp[i_land]
+                if burned_weight > 0 : 
+                    burned_total.put_record(record, weight=burned_weight) 
+                    burned_occurrence.put_record(record)
+
+    return (occurrence, burned_occurrence, burned_forest, burned_nonforest, 
+            burned_other, burned_total)
+
+def ba_multiyear_histogram(years, ba_template, ind_template, ind_names, 
+                outfile=None, bins=10) :
+    """computes multiyear histograms and stores in a netcdf file."""
+
+    # open netcdf files
+    bafiles = [ ]
+    indfiles = [ ] 
+    for y in years : 
+        bafiles.append(nc.Dataset(ba_template % y))
+        indfiles.append(nc.Dataset(ind_template % y))
+
+    # compute min/max
+    minmax = oi.multifile_minmax(indfiles, ind_names)
+    if not ('__iter__' in dir(bins)) : 
+        bins = [ bins ] * len(years)
+    minmax = zip(minmax[0], minmax[1], bins)
+
+
+    # compute histogram
+    histos = ba_multifile_histograms(bafiles, indfiles, ind_names, minmax)
+    
+
+    # write output
+    if outfile is not None : 
+        ofile = nc.Dataset(outfile, 'w')
+        
+        # create dimensions
+        for i_ind, indname in enumerate(ind_names) : 
+            cur_min, cur_max, cur_bins = minmax[i_ind]
+            ofile.createDimension(indname, cur_bins)
+            cv = ofile.createVariable(indname, np.float64, dimensions=(indname,)) 
+            binsize    = float(cur_max - cur_min)/cur_bins
+            cv[:] = np.arange(cur_min, cur_max, binsize)
+            cv.binsize = binsize
+
+        # store variables
+        names = [ 'occurrence', 'burned_occurrence', 'burned_forest', 'burned_nonforest',
+                  'burned_other', 'burned_total'] 
+        types = [ np.int32, np.int32, np.float64, np.float64, np.float64, np.float64]
+        for name, hist, t in zip(names, histos, types) : 
+            v = ofile.createVariable(name, t, ind_names) 
+            v[:] = hist.H 
+            v.count = hist.count
+            v.total = hist.total
+
+        # close outfile
+        ofile.close()
+
+    # close netcdf files
+    for i_files in range(len(years)) : 
+        bafiles[i_files].close()
+        indfiles[i_files].close()
+
+    return histos

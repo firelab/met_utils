@@ -11,6 +11,7 @@ import astropy.units as u
 import astropy.coordinates as c
 import astropy.time as t
 import numpy as np
+import numpy.ma as ma
 import fuelmoisture as fm
 import met_functions as met
 import window as w
@@ -423,3 +424,26 @@ def indices_year(y, forcing_template, out_template) :
         ds.next()
     
     ds.close()
+
+def multifile_minmax(datasets, indices) : 
+    """calculates minimum and maximum of indices across multiple files"""
+    num_ind = len(indices)
+    minvals = ma.masked_all( (num_ind,), dtype=np.float64)
+    maxvals = ma.masked_all( (num_ind,), dtype=np.float64)
+    for i_year in range(len(datasets)) : 
+        indfile = datasets[i_year]
+        timelim = len(indfile.dimensions['days'])-1
+        for i_indices in range(num_ind) : 
+            index_vals = indfile.variables[indices[i_indices]][1:timelim,:]
+            cur_max = np.max(index_vals)
+            cur_min = np.min(index_vals)
+            if minvals[i_indices] is ma.masked : 
+                minvals[i_indices] = cur_min
+                maxvals[i_indices] = cur_max
+            else : 
+                minvals[i_indices] = min(cur_min, minvals[i_indices])
+                maxvals[i_indices] = max(cur_max, maxvals[i_indices])
+
+    return (minvals,maxvals)
+
+
