@@ -37,6 +37,7 @@ class LinearSamplingFunction ( SamplingFunction ) :
 
         if minmaxbin is not None : 
             minval, maxval, num_bins = minmaxbin
+            num_bins = np.trunc(num_bins).astype(np.int)
             self.scale = num_bins / (maxval - minval)
             self.includemax = includemax
             self.maxval = maxval
