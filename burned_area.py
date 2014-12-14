@@ -349,7 +349,7 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) :
             burned_other, burned_total)
 
 def ba_multiyear_histogram(years, ba_template, ind_template, ind_names, 
-                outfile=None, bins=10) :
+                outfile=None, bins=10, minmaxyears=None) :
     """computes multiyear histograms and stores in a netcdf file."""
 
     # open netcdf files
@@ -360,10 +360,20 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
         indfiles.append(nc.Dataset(ind_template % y))
 
     # compute min/max
+    minmax_indfiles = indfiles
+    if minmaxyears is not None : 
+        minmax_indfiles = [ ]
+        for y in minmaxyears : 
+            minmax_indfiles.append(nc.Dataset(ind_template %y))
+
     minmax = oi.multifile_minmax(indfiles, ind_names)
     if not ('__iter__' in dir(bins)) : 
         bins = [ bins ] * len(years)
     minmax = zip(minmax[0], minmax[1], bins)
+
+    if minmaxyears is not None : 
+        for f in minmax_indfiles : 
+            f.close()
 
 
     # compute histogram
