@@ -425,8 +425,21 @@ def indices_year(y, forcing_template, out_template) :
     
     ds.close()
 
-def multifile_minmax(datasets, indices) : 
-    """calculates minimum and maximum of indices across multiple files"""
+def multifile_minmax(datasets, indices, years=None) : 
+    """calculates minimum and maximum of indices across multiple files
+    
+    You may call this function with a list of previously opened NetCDF 
+    datasets, or you may provide a template for the filename and a list of 
+    years. If you provide a template, this function will open and close
+    the files for you.
+    """
+    
+    if years is not None : 
+        minmax_indfiles = [ ]
+        for y in years : 
+            minmax_indfiles.append(nc.Dataset(datasets %y))
+        datasets = minmax_indfiles
+
     num_ind = len(indices)
     minvals = ma.masked_all( (num_ind,), dtype=np.float64)
     maxvals = ma.masked_all( (num_ind,), dtype=np.float64)
@@ -443,6 +456,10 @@ def multifile_minmax(datasets, indices) :
             else : 
                 minvals[i_indices] = min(cur_min, minvals[i_indices])
                 maxvals[i_indices] = max(cur_max, maxvals[i_indices])
+
+    if years is not None : 
+        for f in minmax_indfiles : 
+            f.close()
 
     return (minvals,maxvals)
 

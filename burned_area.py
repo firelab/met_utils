@@ -360,20 +360,15 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
         indfiles.append(nc.Dataset(ind_template % y))
 
     # compute min/max
-    minmax_indfiles = indfiles
-    if minmaxyears is not None : 
-        minmax_indfiles = [ ]
-        for y in minmaxyears : 
-            minmax_indfiles.append(nc.Dataset(ind_template %y))
-
-    minmax = oi.multifile_minmax(indfiles, ind_names)
+    if minmaxyears is None :
+        minmax = oi.multifile_minmax(indfiles, ind_names)
+    else :
+        minmax = oi.multifile_minmax(ind_template, ind_names, years=minmaxyears)
+        
     if not ('__iter__' in dir(bins)) : 
         bins = [ bins ] * len(years)
     minmax = zip(minmax[0], minmax[1], bins)
 
-    if minmaxyears is not None : 
-        for f in minmax_indfiles : 
-            f.close()
 
 
     # compute histogram
