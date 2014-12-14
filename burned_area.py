@@ -348,6 +348,32 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) :
     return (occurrence, burned_occurrence, burned_forest, burned_not_forest, 
             burned_other, burned_total)
 
+def write_multiyear_histogram_file(outfile, histos, ind_names)  :
+    """write a multiyear histogram netcdf file"""
+    ofile = nc.Dataset(outfile, 'w')
+        
+    # create dimensions
+    for i_ind, indname in enumerate(ind_names) : 
+        cur_min, cur_max, cur_bins = minmax[i_ind]
+        ofile.createDimension(indname, cur_bins)
+        cv = ofile.createVariable(indname, np.float64, dimensions=(indname,)) 
+        binsize    = float(cur_max - cur_min)/cur_bins
+        cv[:] = np.arange(cur_min, cur_max, binsize)
+        cv.binsize = binsize
+
+    # store variables
+    names = [ 'occurrence', 'burned_occurrence', 'burned_forest', 'burned_not_forest',
+                  'burned_other', 'burned_total'] 
+    types = [ np.int32, np.int32, np.float64, np.float64, np.float64, np.float64]
+    for name, hist, t in zip(names, histos, types) : 
+        v = ofile.createVariable(name, t, ind_names) 
+        v[:] = hist.H 
+        v.count = hist.count
+        v.total = hist.total
+
+    # close outfile
+    ofile.close()
+
 def ba_multiyear_histogram(years, ba_template, ind_template, ind_names, 
                 outfile=None, bins=10, minmaxyears=None) :
     """computes multiyear histograms and stores in a netcdf file."""
@@ -369,37 +395,12 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
         bins = [ bins ] * len(years)
     minmax = zip(minmax[0], minmax[1], bins)
 
-
-
     # compute histogram
     histos = ba_multifile_histograms(bafiles, indfiles, ind_names, minmax)
     
-
     # write output
     if outfile is not None : 
-        ofile = nc.Dataset(outfile, 'w')
-        
-        # create dimensions
-        for i_ind, indname in enumerate(ind_names) : 
-            cur_min, cur_max, cur_bins = minmax[i_ind]
-            ofile.createDimension(indname, cur_bins)
-            cv = ofile.createVariable(indname, np.float64, dimensions=(indname,)) 
-            binsize    = float(cur_max - cur_min)/cur_bins
-            cv[:] = np.arange(cur_min, cur_max, binsize)
-            cv.binsize = binsize
-
-        # store variables
-        names = [ 'occurrence', 'burned_occurrence', 'burned_forest', 'burned_not_forest',
-                  'burned_other', 'burned_total'] 
-        types = [ np.int32, np.int32, np.float64, np.float64, np.float64, np.float64]
-        for name, hist, t in zip(names, histos, types) : 
-            v = ofile.createVariable(name, t, ind_names) 
-            v[:] = hist.H 
-            v.count = hist.count
-            v.total = hist.total
-
-        # close outfile
-        ofile.close()
+        write_multiyear_histogram_file(outfile, histos, ind_names)
 
     # close netcdf files
     for i_files in range(len(years)) : 
