@@ -127,6 +127,10 @@ class OrthoIndexer (SamplingFunction)  :
     domain, and that all axes are orthogonal. The number of sampling functions
     is the same as the number of unitted values provided, which is the same
     as the number of indices returned.
+    
+    The conversion between indices and unit vals happens for single sets of 
+    coordinates, not for sequences of coordinates. This is different
+    than the above.
     """
     def __init__(self, sample_functions) : 
         """Initializes an NDindexer given a list of sampling functions"""
@@ -140,12 +144,12 @@ class OrthoIndexer (SamplingFunction)  :
             ret[i] = self.sample_functions[i].get_index(unit_val[i])
         return tuple(ret) 
 
-    def get_unit_val(self, i) : 
+    def get_unit_val(self, index) : 
         """returns a tuple of unit_vals 
         """
         ret = np.empty( (len(self.sample_functions),))
         for i in range(len(self.sample_functions)) : 
-            ret[i] = self.sample_functions[i].get_unit_val(i[i])
+            ret[i] = self.sample_functions[i].get_unit_val(index[i])
         return tuple(ret) 
 
 
