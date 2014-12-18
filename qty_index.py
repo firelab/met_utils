@@ -55,6 +55,11 @@ class LinearSamplingFunction ( SamplingFunction ) :
             int_index = np.where(unit_val == self.maxval, self.maxbin, int_index)
         return int_index
         
+    def get_unit_val(self, i) : 
+        """calculates the physical unit given the integer index"""
+        unit_val = (i-self.offset)/self.scale
+        return unit_val
+        
 
 class TimeSinceEpochFunction ( SamplingFunction ) : 
     """calculates an index given a timestamp
@@ -133,6 +138,14 @@ class OrthoIndexer (SamplingFunction)  :
         ret = np.empty( (len(self.sample_functions),), dtype=int)
         for i in range(len(self.sample_functions)) : 
             ret[i] = self.sample_functions[i].get_index(unit_val[i])
+        return tuple(ret) 
+
+    def get_unit_val(self, i) : 
+        """returns a tuple of unit_vals 
+        """
+        ret = np.empty( (len(self.sample_functions),))
+        for i in range(len(self.sample_functions)) : 
+            ret[i] = self.sample_functions[i].get_unit_val(i[i])
         return tuple(ret) 
 
 

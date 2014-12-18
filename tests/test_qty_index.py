@@ -48,6 +48,13 @@ class TestLinearSamplingFunction(unittest.TestCase) :
         self.assertEqual(samp_fn.maxval, 5)
         self.assertEqual(10, samp_fn.get_index(5))
 
+    def test_get_unit_val(self) : 
+        """given index, compute the unit"""
+        samp_fn = q.LinearSamplingFunction( 1/(0.25 * u.day))
+        hourly = np.arange(0,1,1./4) * u.day
+        test_ind = samp_fn.get_index(hourly)
+        test_hourly = samp_fn.get_unit_val(test_ind)
+        self.assertTrue(np.all(test_hourly == hourly))
                 
 class TestLongitudeSamplingFunction(unittest.TestCase) : 
     def test_index_units(self):  
