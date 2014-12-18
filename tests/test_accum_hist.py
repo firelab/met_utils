@@ -49,4 +49,34 @@ class TestAccumulatingHistogram (unittest.TestCase) :
             edges.append(np.linspace(ax_min, ax_max, num=ax_bins+1, endpoint=True))
         counts,e = np.histogramdd(self.x, bins=edges)
         self.assertTrue(np.all(counts == hist.H))
+
+        
+class TestSparseKeyedHistogram ( unittest.TestCase ) :
+    def setUp(self):
+        self.threshold = 10  
+        self.short_data = np.arange(self.threshold-1)
+        self.long_data = np.arange(self.threshold)
+        self.default_minmax = (0,self.threshold,self.threshold)
+        self.minmax = [ (0,5,5), (0,2,2), (-1,5,6) ] 
+
+    def test_default(self) : 
+        h = ah.SparseKeyedHistogram(minmax=self.minmax,default_minmax=self.default_minmax)
+        self.assertIs(None, h.default)
+        h.put_combo( (1,2,3), self.short_data)
+        self.assertEqual(len(h.default_contrib),1)
+        self.assertTrue( np.all(h.default_edges == np.arange(0,self.threshold+0.5,1)))
+        self.assertTrue( np.all(h.default == (1,1,1,1,1,1,1,1,1,0)))
+        
+        h.put_combo( (0,1,2), self.short_data)
+        self.assertEqual(len(h.default_contrib),2)
+        self.assertTrue( np.all(h.default == (2,2,2,2,2,2,2,2,2,0)))
+        
+    def test_combo(self) : 
+        h = ah.SparseKeyedHistogram(minmax=self.minmax,
+                            default_minmax=self.default_minmax,
+                            threshold=self.threshold)
+        h.put_combo( (2,1,3), self.long_data)
+        self.assertIs(None, h.default)
+        self.assertEqual(len(h.get_combos()),1)
+        self.assertEqual( (2,1,3), h.get_combos()[0])
         
