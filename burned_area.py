@@ -287,11 +287,7 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) :
     area, and do not contain information from which unburned area may be 
     derived.
     """
-    num_ind = len(ind_files)
     one_day = len(ind_files[0].dimensions['land'])
-    num_days = (len(ind_files[0].dimensions['days']) -2)
-    num_obs = num_days * one_day
-    num_bins = [10]*num_ind
 
     # these two count 0.5 x 0.5 degree cells
     occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
@@ -348,7 +344,7 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) :
     return (occurrence, burned_occurrence, burned_forest, burned_not_forest, 
             burned_other, burned_total)
 
-def write_multiyear_histogram_file(outfile, histos, ind_names)  :
+def write_multiyear_histogram_file(outfile, histos, ind_names, minmax)  :
     """write a multiyear histogram netcdf file"""
     ofile = nc.Dataset(outfile, 'w')
         
@@ -400,7 +396,7 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
     
     # write output
     if outfile is not None : 
-        write_multiyear_histogram_file(outfile, histos, ind_names)
+        write_multiyear_histogram_file(outfile, histos, ind_names, minmax)
 
     # close netcdf files
     for i_files in range(len(years)) : 
@@ -408,3 +404,76 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
         indfiles[i_files].close()
 
     return histos
+
+def select_data(dataframe, names, i_count, indexer, lc_codes=None) : 
+    u_lower = indexer.get_unit_val(i_count)
+    u_upper = indexer.get_unit_val(i_count+1)
+    
+    # initialize to "everything" or "everything in a set of landcover codes"
+    if lc_codes is None :
+        i_data = np.ones( (dataframe.shape[0],), dtype=np.bool)
+    else : 
+        i_data = [dataframe.ix[i,1] in lc_codes for i in range(dataframe.shape[0])]
+    for low,high,name in zip(u_lower, u_upper, names) :
+        i_cur = np.logical_and(dataframe[name]>=low, dataframe[name]<high)
+        i_data = np.logical_and(i_data, i_cur)
+        
+    return dataframe[i_data]
+
+def sparse_multiyear_histogram(years, csv_template, bahistfile, 
+                            count_threshold=50, bins=25, out_template=None) : 
+    """computes and optionally saves sparse histograms of MODIS BA counts"""
+    # open the ba histogram file
+    bahist = nc.Dataset(bahistfile)
+    counts = bahist.variables['burned_occurrence']
+    
+    # read all csv files and concatenate
+    file_list = []
+    for y in years :  
+        file_list.append(pd.read_csv(csv_template % y))
+    compare = pd.concat(file_list)
+    
+    # get min/max/bin from multiyear histogram file
+    mmb = [] 
+    binsizes = [ ]
+    for dimname in counts.dimensions: 
+        dim = bahist.dimensions[dimname]
+        cv = bahist.variables[dimname][:]
+        mmb.append( (cv[0], cv[-1], len(dim)))
+        binsizes.append( cv.binsize )
+        
+    # create an indexer
+    index = ah.init_indexers(mmb)    
+    
+    # create sparse histograms
+    shisto_forest = ah.SparseKeyedHistogram(minmax=mmb, threshold=count_threshold,
+                           bins=bins, default_minmax=(1,count_threshold,count_threshold-1))
+    shisto_not_forest = ah.SparseKeyedHistogram(minmax=mmb, threshold=count_threshold,
+                           bins=bins, default_minmax=(1,count_threshold,count_threshold-1))
+    shisto_total = ah.SparseKeyedHistogram(minmax=mmb, threshold=count_threshold,
+                           bins=bins, default_minmax=(1,count_threshold,count_threshold-1))
+
+                           
+
+    # loop through all bins with nonzero data
+    i_nonzero = zip(np.where( counts[:]>0 ))
+    for i_bin in i_nonzero : 
+        total = select_data(compare, counts.dimensions, i_bin, index)
+        forest = total[ total.ix[:,1].isin(FOREST_LC) ]
+        not_forest = total [ total.ix[:,1].isin(NONFOREST_LC) ]
+        
+        shisto_forest.put_combo(i_bin, forest['BA Count'], units=False)
+        shisto_not_forest.put_combo(i_bin, not_forest["BA Count"], units=False)
+        shisto_total.put_combo(i_bin, total['BA Count'], units=False)
+        
+    # save file if filename template specified
+    if out_template is not None : 
+        ah.save_sparse_histos(shisto_total, out_template%'total')
+        ah.save_sparse_histos(shisto_forest, out_template%'forest')
+        ah.save_sparse_histos(shisto_not_forest, out_template%'not_forest')
+        
+    bahist.close()
+    
+    return (shisto_total, shisto_forest, shisto_not_forest)
+                         
+    
