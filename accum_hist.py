@@ -92,14 +92,17 @@ class SparseKeyedHistogram (object) :
                                        binsize)
                                        
 
-    def _add_histo(self, i_combo, H, edges) : 
-        self.histograms[i_combo] = (H, edges)  
+    def _add_histo(self, i_combo, H, weighted, edges) : 
+        i_combo = tuple(i_combo)
+        self.histograms[i_combo] = (H, weighted, edges)  
         
-    def _add_default(self, H) : 
+    def _add_default(self, H, wgt) : 
         if self.default is None :
             self.default = H
+            self.default_weighted = wgt
         else : 
             self.default += H
+            self.default_weighted += wgt
                                         
         
     def put_combo(self, combo, data, units=True) : 
@@ -111,20 +114,25 @@ class SparseKeyedHistogram (object) :
         if data.size < self.threshold : 
             self.default_contrib[i_combo] = data.size
             H,edges = np.histogram(data,bins=self.default_edges)
-            self._add_default(H)
+            weighted,edges = np.histogram(data,bins=self.default_edges,weights=data)
+            self._add_default(H,weighted)
         else : 
             H, edges = np.histogram(data, bins=self.bins)
-            self._add_histo(i_combo, H, edges)
+            weighted, edges = np.histogram(data, bins=self.bins, weights=data)
+            self._add_histo(i_combo, H, weighted, edges)
             
-    def get_histogram(self, combo) : 
+    def get_histogram(self, combo, weighted=False) : 
         """returns the histogram associated with the specified combination of parameters"""
         i_combo = tuple(self._index.get_index(combo))
-        return self.histograms[i_combo][0]
+        i_histo = 0 
+        if weighted : 
+            i_histo = 1
+        return self.histograms[i_combo][i_histo]
         
     def get_edges(self, combo) : 
         """returns the bin edges associated with the specified combination of parameters"""
         i_combo = tuple(self._index.get_index(combo))
-        return self.histograms[i_combo][1]
+        return self.histograms[i_combo][2]
         
     def get_combos(self) : 
         """returns the list of parameter combinations present"""
@@ -163,6 +171,10 @@ def save_sparse_histos(sparse_histo, filename) :
                         dimensions=('histograms','bins'))
     histos.long_name = "histogram bin values" 
     
+    weighted = ncfile.createVariable("weighted_histograms", np.float64,
+                        dimensions=('histograms','bins'))
+    weighted.long_name = "weighted histogram bin values" 
+    
     edges = ncfile.createVariable("histogram_bin_edges", np.float64,
                         dimensions=('histograms','edges'))
     edges.long_name = "edge values of the histogram bins"
@@ -181,6 +193,10 @@ def save_sparse_histos(sparse_histo, filename) :
                         dimensions=('default_bins',))
         default_histo.long_name = "Histogram for small counts"
         
+        default_wgt_histo = ncfile.createVariable("default_weighted_histogram", np.float64,
+                        dimensions=('default_bins',))
+        default_wgt_histo.long_name = "Weighted histogram for small counts"
+        
         default_edges = ncfile.createVariable("default_bin_edges", np.float64,
                         dimensions=('default_edges',))
         default_edges.long_name = "edge values for default histogram"
@@ -189,13 +205,19 @@ def save_sparse_histos(sparse_histo, filename) :
     for i in range(len(sparse_histo.minmax)): 
         mmb[i,:] = sparse_histo.minmax[i]
         
+
+    # populate the default histogram
+    default_histo[:] = sparse_histo.default[:]
+    default_wgt_histo[:] = sparse_histo.default_weighted[:]
+    default_edges[:] = sparse_histo.default_edges
     
     # populate the histograms
     i_coords = 0
     for k,v in sparse_histo.histograms.iteritems() :
-        coords[i_coords,:] = k
-        histos[i_coords,:] = v[0]
-        edges[i_coords,:]  = v[1]
+        coords[i_coords,:]   = k
+        histos[i_coords,:]   = v[0]
+        weighted[i_coords,:] = v[1]
+        edges[i_coords,:]    = v[2]
         i_coords += 1
     
     # close   
@@ -213,15 +235,18 @@ def load_sparse_histos(histofile) :
                         bins=bins, threshold=threshold)
                 
     # populate the default histogram
-    shisto._add_default(ncfile.variables['default_histogram'][:])
+    shisto._add_default(ncfile.variables['default_histogram'][:],
+                        ncfile.variables['default_weighted_histogram'][:])
     # default histogram edges should already be populated
     
     # populate the histogram dictionary.
-    i_combos = shisto.variables['coordinates'][:]
-    histos   = shisto.variables['histograms'][:]
-    edges    = shisto.variables['histogram_bin_edges'][:]
+    i_combos = ncfile.variables['coordinates'][:]
+    histos   = ncfile.variables['histograms'][:]
+    wgt      = ncfile.variables['weighted_histograms'][:]
+    edges    = ncfile.variables['histogram_bin_edges'][:]
     for i_histo in range(len(ncfile.dimensions['histograms'])) :         
-        shisto._add_histo(i_combos[i_histo,:], histos[i_histo,:], edges[i_histo,:])
+        shisto._add_histo(i_combos[i_histo,:], histos[i_histo,:], 
+                          wgt[i_histo,:], edges[i_histo,:])
     
     ncfile.close()
     return shisto   

@@ -407,7 +407,7 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
 
 def select_data(dataframe, names, i_count, indexer, lc_codes=None) : 
     u_lower = indexer.get_unit_val(i_count)
-    u_upper = indexer.get_unit_val(i_count+1)
+    u_upper = indexer.get_unit_val(np.add(i_count,1))
     
     # initialize to "everything" or "everything in a set of landcover codes"
     if lc_codes is None :
@@ -440,7 +440,7 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
         dim = bahist.dimensions[dimname]
         cv = bahist.variables[dimname][:]
         mmb.append( (cv[0], cv[-1], len(dim)))
-        binsizes.append( cv.binsize )
+        binsizes.append( bahist.variables[dimname].binsize )
         
     # create an indexer
     index = ah.init_indexers(mmb)    
@@ -456,8 +456,8 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
                            
 
     # loop through all bins with nonzero data
-    i_nonzero = zip(np.where( counts[:]>0 ))
-    for i_bin in i_nonzero : 
+    i_nonzero = np.where( counts[:]>0 )
+    for i_bin in zip(*i_nonzero) : 
         total = select_data(compare, counts.dimensions, i_bin, index)
         forest = total[ total.ix[:,1].isin(FOREST_LC) ]
         not_forest = total [ total.ix[:,1].isin(NONFOREST_LC) ]
