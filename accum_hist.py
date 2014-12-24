@@ -107,12 +107,17 @@ class SparseKeyedHistogram (object) :
         
     def put_combo(self, combo, data, units=True) : 
         """computes and stores a histogram for a combination of parameters"""
+        if data.size == 0 : 
+            return 
         if units : 
             i_combo = self._index.get_index(combo)
         else : 
             i_combo = combo
         if data.size < self.threshold : 
-            self.default_contrib[i_combo] = data.size
+            if i_combo not in self.default_contrib : 
+                self.default_contrib[i_combo] = data.size
+            else : 
+                self.default_contrib[i_combo] += data.size
             H,edges = np.histogram(data,bins=self.default_edges)
             weighted,edges = np.histogram(data,bins=self.default_edges,weights=data)
             self._add_default(H,weighted)
@@ -154,9 +159,10 @@ def save_sparse_histos(sparse_histo, filename) :
     ncfile.createDimension("axes_definition", 3)
     
     if sparse_histo.default is not None : 
+        ncfile.createDimension("contrib_record", len(sparse_histo.minmax)+1)
+        ncfile.createDimension("contributions", len(sparse_histo.default_contrib))
         ncfile.createDimension("default_bins", sparse_histo.default.size)
         ncfile.createDimension("default_edges", sparse_histo.default.size+1)
-        # add default_contrib somehow
         
     # create variables
     mmb = ncfile.createVariable("minmaxbin", np.float32, 
@@ -183,11 +189,12 @@ def save_sparse_histos(sparse_histo, filename) :
     threshold.long_name = "minimum counts required for a histogram to be individually considered"
     threshold[:] = sparse_histo.threshold
     
+    default_minmax = ncfile.createVariable("default_minmax", np.float64,
+                    dimensions=('axes_definition',))
+    default_minmax.long_name = "bin definition for default histogram"
+    default_minmax[:] = sparse_histo.default_minmax
+
     if sparse_histo.default is not None : 
-        default_minmax = ncfile.createVariable("default_minmax", np.float64,
-                        dimensions=('axes_definition',))
-        default_minmax.long_name = "bin definition for default histogram"
-        default_minmax[:] = sparse_histo.default_minmax
                             
         default_histo = ncfile.createVariable("default_histogram", np.float64,
                         dimensions=('default_bins',))
@@ -200,6 +207,10 @@ def save_sparse_histos(sparse_histo, filename) :
         default_edges = ncfile.createVariable("default_bin_edges", np.float64,
                         dimensions=('default_edges',))
         default_edges.long_name = "edge values for default histogram"
+
+        default_contrib = ncfile.createVariable("default_contrib", np.int32,
+                        dimensions=('contributions','contrib_record'))
+        default_contrib.long_name = 'contributions to the default histogram'
     
     # populate the axes definition
     for i in range(len(sparse_histo.minmax)): 
@@ -207,9 +218,16 @@ def save_sparse_histos(sparse_histo, filename) :
         
 
     # populate the default histogram
-    default_histo[:] = sparse_histo.default[:]
-    default_wgt_histo[:] = sparse_histo.default_weighted[:]
-    default_edges[:] = sparse_histo.default_edges
+    if sparse_histo.default is not None : 
+        default_histo[:] = sparse_histo.default[:]
+        default_wgt_histo[:] = sparse_histo.default_weighted[:]
+        default_edges[:] = sparse_histo.default_edges
+        i_contrib = 0 
+        for k,v in sparse_histo.default_contrib.iteritems() : 
+            default_contrib[i_contrib,:-1] = k
+            default_contrib[i_contrib,-1] = v
+            i_contrib += 1
+            
     
     # populate the histograms
     i_coords = 0
@@ -226,6 +244,7 @@ def save_sparse_histos(sparse_histo, filename) :
 def load_sparse_histos(histofile) :
     ncfile = nc.Dataset(histofile) 
     
+    default_ok = "default_bins" in ncfile.dimensions
     default_minmax = ncfile.variables['default_minmax'][:]
     minmax = ncfile.variables['minmaxbin'][:]
     bins = len(ncfile.dimensions['bins'])
@@ -235,9 +254,15 @@ def load_sparse_histos(histofile) :
                         bins=bins, threshold=threshold)
                 
     # populate the default histogram
-    shisto._add_default(ncfile.variables['default_histogram'][:],
-                        ncfile.variables['default_weighted_histogram'][:])
-    # default histogram edges should already be populated
+    if default_ok : 
+        shisto._add_default(ncfile.variables['default_histogram'][:],
+                            ncfile.variables['default_weighted_histogram'][:])
+        # default histogram edges should already be populated
+        default_contrib = {} 
+        dc = ncfile.variables['default_contrib']
+        for i_contrib in range(len(ncfile.dimensions['contributions'])) : 
+            i_combo = tuple(dc[i_contrib, :-1])
+            default_contrib[i_combo] = dc[i_contrib, -1]
     
     # populate the histogram dictionary.
     i_combos = ncfile.variables['coordinates'][:]
