@@ -436,6 +436,7 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
     for y in years :  
         file_list.append(pd.read_csv(csv_template % y))
     compare = pd.concat(file_list)
+    compare = compare[ np.logical_and(compare.icol(0)>=10,compare.icol(0)<364) ] 
     
     # get min/max/bin from multiyear histogram file
     mmb = [] 
