@@ -439,8 +439,8 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
     for dimname in counts.dimensions: 
         dim = bahist.dimensions[dimname]
         cv = bahist.variables[dimname][:]
-        mmb.append( (cv[0], cv[-1], len(dim)))
         binsizes.append( bahist.variables[dimname].binsize )
+        mmb.append( (cv[0], cv[-1]+binsizes[-1], len(dim)))
         
     # create an indexer
     index = ah.init_indexers(mmb)    
@@ -461,7 +461,7 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
         total = select_data(compare, counts.dimensions, i_bin, index)
         forest = total[ total.ix[:,1].isin(FOREST_LC) ]
         not_forest = total [ total.ix[:,1].isin(NONFOREST_LC) ]
-        
+
         shisto_forest.put_combo(i_bin, forest['BA Count'], units=False)
         shisto_not_forest.put_combo(i_bin, not_forest["BA Count"], units=False)
         shisto_total.put_combo(i_bin, total['BA Count'], units=False)
