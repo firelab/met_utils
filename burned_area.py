@@ -405,17 +405,21 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
 
     return histos
 
-def select_data(dataframe, names, i_count, indexer, lc_codes=None) : 
+def select_data(dataframe, names, i_count, indexer, dim_bins, lc_codes=None) : 
     u_lower = indexer.get_unit_val(i_count)
     u_upper = indexer.get_unit_val(np.add(i_count,1))
+    pegged = [i == d for i,d in zip(i_count,dim_bins)]
     
     # initialize to "everything" or "everything in a set of landcover codes"
     if lc_codes is None :
         i_data = np.ones( (dataframe.shape[0],), dtype=np.bool)
     else : 
         i_data = [dataframe.ix[i,1] in lc_codes for i in range(dataframe.shape[0])]
-    for low,high,name in zip(u_lower, u_upper, names) :
-        i_cur = np.logical_and(dataframe[name]>=low, dataframe[name]<high)
+    for low,high,name,p in zip(u_lower, u_upper, names, pegged) :
+        if not pegged : 
+            i_cur = np.logical_and(dataframe[name]>=low, dataframe[name]<high)
+        else : 
+            i_cur = np.logical_and(dataframe[name]>=low, dataframe[name]<=high)
         i_data = np.logical_and(i_data, i_cur)
         
     return dataframe[i_data]
@@ -443,7 +447,10 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
         mmb.append( (cv[0], cv[-1]+binsizes[-1], len(dim)))
         
     # create an indexer
-    index = ah.init_indexers(mmb)    
+    index = ah.init_indexers(mmb) 
+    
+    # strip out geometry
+    dim_bins = [m[2] for m in mmb]   
     
     # create sparse histograms
     shisto_forest = ah.SparseKeyedHistogram(minmax=mmb, threshold=count_threshold,
@@ -458,7 +465,7 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
     # loop through all bins with nonzero data
     i_nonzero = np.where( counts[:]>0 )
     for i_bin in zip(*i_nonzero) : 
-        total = select_data(compare, counts.dimensions, i_bin, index)
+        total = select_data(compare, counts.dimensions, i_bin, index, dim_bins)
         forest = total[ total.ix[:,1].isin(FOREST_LC) ]
         not_forest = total [ total.ix[:,1].isin(NONFOREST_LC) ]
 
