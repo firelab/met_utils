@@ -113,7 +113,7 @@ class SparseKeyedHistogram (object) :
             i_combo = self._index.get_index(combo)
         else : 
             i_combo = combo
-        tot_size = np.sum(data.size)
+        tot_size = np.sum(data)
         if tot_size < self.threshold : 
             if i_combo not in self.default_contrib : 
                 self.default_contrib[i_combo] = data.size
