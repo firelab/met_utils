@@ -429,7 +429,7 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
     """computes and optionally saves sparse histograms of MODIS BA counts"""
     # open the ba histogram file
     bahist = nc.Dataset(bahistfile)
-    counts = bahist.variables['burned_occurrence']
+    counts = bahist.variables['burned_total']
     
     # read all csv files and concatenate
     file_list = []
