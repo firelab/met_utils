@@ -206,7 +206,7 @@ class SparseHistoFit (object) :
         for i_combo in histo.get_combos(units=False) : 
             H_fit = self._fit_class(histo.get_histogram(i_combo, weighted=weighted, units=False), 
                            bin_center(histo.get_edges(i_combo, units=False)))
-            self.fits[i_combo] = H_fit[0]
+            self.fits[i_combo] = H_fit
                            
                         
         if weighted : 
