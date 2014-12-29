@@ -14,7 +14,25 @@ class Dummy (object):
     def conf_int(self) : 
         return self.conf  
     
-class ExpTauForm (object) : 
+class FunctionalFitForm (object) : 
+    def __init__(self, data=None, centers=None, fit_params=None) :
+        """common initialization logic for children
+        
+        Users may provide an array of data and bin centers (in which case
+        the fit will be performed), or may provide precomputed fit_params
+        in the form supplied by get_fitinfo() (in which case the object will
+        just be loaded with the fit data.)
+        
+        If you do neither, the object will not be ready for use until you
+        call fit() or load(). 
+        """
+         
+        if not ((data is None) or (centers is None)):
+            self.fit(data,centers)
+        elif fit_params is not None : 
+            self.load(fit_params) 
+
+class ExpTauForm (FunctionalFitForm) : 
     fit_column_names = ['r_squared',
             'tau',
             'tau_stderr',
@@ -81,7 +99,7 @@ class ExpTauForm (object) :
         self.results.pvalues = fit_data[6:4:-1]
         self.results.conf = [ fit_data[9:11], fit_data[7:9] ]
 
-class PowerNForm (object) :  
+class PowerNForm (FunctionalFitForm) :  
     
     fit_column_names =  [
         'r_squared',
