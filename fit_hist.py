@@ -219,19 +219,21 @@ class SparseHistoFit (object) :
     def _init_ff(self, ff) : 
         self._fit_class = ff
         
-    def _fit_functional_form(self, histo, weighted=False) : 
-        #initialize parameters for all the bins.
-        for i_combo in histo.get_combos(units=False) : 
-            H_fit = self._fit_class(histo.get_histogram(i_combo, weighted=weighted, units=False), 
-                           bin_center(histo.get_edges(i_combo, units=False)))
-            self.fits[i_combo] = H_fit
-                           
-                        
+    def _fit_functional_form(self, histo, weighted=False, min_npts=10) : 
         if weighted : 
             default = histo.default_weighted
         else : 
             default = histo.default
             
+        #initialize parameters for all the bins.
+        for i_combo in histo.get_combos(units=False) : 
+            cur_hist = histo.get_histogram(i_combo, weighted=weighted, units=False)
+            if np.count_nonzero(cur_hist) >= min_npts : 
+                H_fit = self._fit_class(histo.get_histogram(i_combo, weighted=weighted, units=False), 
+                           bin_center(histo.get_edges(i_combo, units=False)))
+                self.fits[i_combo] = H_fit
+                           
+                        
         self.default_fit = self._fit_class( default, 
                         bin_center(histo.default_edges ))
                  

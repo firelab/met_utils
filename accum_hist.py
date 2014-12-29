@@ -105,16 +105,34 @@ class SparseKeyedHistogram (object) :
             self.default_weighted += wgt
                                         
         
-    def put_combo(self, combo, data, units=True) : 
-        """computes and stores a histogram for a combination of parameters"""
+    def put_combo(self, combo, data, units=True, thresh_on_total=False, min_bins=10) : 
+        """computes and stores a histogram for a combination of parameters
+
+        This method will store a stand-alone histogram for any data which 
+        has more than the minimum threshold of counts, provided the resulting
+        histogram also has data in more than (or exactly) the minimum number of bins.
+        Data which do not meet these criteria are lumped into the default histogram.
+        """
         if data.size == 0 : 
             return 
         if units : 
             i_combo = self._index.get_index(combo)
         else : 
             i_combo = combo
-        tot_size = np.sum(data)
-        if tot_size < self.threshold : 
+
+        tot_size = data.size
+        if thresh_on_total : 
+            tot_size = np.sum(data)
+
+        add_to_default = True
+        if tot_size >= self.threshold : 
+            H, edges = np.histogram(data, bins=self.bins)
+            weighted, edges = np.histogram(data, bins=self.bins, weights=data)
+            add_to_default = (np.count_nonzero(H) < min_bins)
+            if not add_to_default : 
+                self._add_histo(i_combo, H, weighted, edges)
+            
+        if add_to_default:
             if i_combo not in self.default_contrib : 
                 self.default_contrib[i_combo] = data.size
             else : 
@@ -122,11 +140,7 @@ class SparseKeyedHistogram (object) :
             H,edges = np.histogram(data,bins=self.default_edges)
             weighted,edges = np.histogram(data,bins=self.default_edges,weights=data)
             self._add_default(H,weighted)
-        else : 
-            H, edges = np.histogram(data, bins=self.bins)
-            weighted, edges = np.histogram(data, bins=self.bins, weights=data)
-            self._add_histo(i_combo, H, weighted, edges)
-            
+
     def get_histogram(self, combo, weighted=False, units=True) : 
         """returns the histogram associated with the specified combination of parameters"""
         if units : 
