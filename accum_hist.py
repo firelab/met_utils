@@ -127,25 +127,32 @@ class SparseKeyedHistogram (object) :
             weighted, edges = np.histogram(data, bins=self.bins, weights=data)
             self._add_histo(i_combo, H, weighted, edges)
             
-    def get_histogram(self, combo, weighted=False) : 
+    def get_histogram(self, combo, weighted=False, units=True) : 
         """returns the histogram associated with the specified combination of parameters"""
-        i_combo = tuple(self._index.get_index(combo))
+        if units : 
+            i_combo = tuple(self._index.get_index(combo))
+        else: 
+            i_combo = combo
         i_histo = 0 
         if weighted : 
             i_histo = 1
         return self.histograms[i_combo][i_histo]
         
-    def get_edges(self, combo) : 
+    def get_edges(self, combo, units=True) : 
         """returns the bin edges associated with the specified combination of parameters"""
-        i_combo = tuple(self._index.get_index(combo))
+        if units: 
+            i_combo = tuple(self._index.get_index(combo))
+        else : 
+            i_combo = combo
         return self.histograms[i_combo][2]
         
-    def get_combos(self) : 
+    def get_combos(self, units=True) : 
         """returns the list of parameter combinations present"""
         k = self.histograms.keys()
-        combos = [] 
-        for cur_index in k : 
-            combos.append(self._index.get_unit_val(cur_index))
+        if units :
+            combos = [self._index.get_unit_val(cur) for cur in k ]
+        else : 
+            combos = k
         return combos
         
 def save_sparse_histos(sparse_histo, filename) :
