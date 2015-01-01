@@ -3,7 +3,6 @@ import numpy as np
 import numpy.ma as ma
 import astropy.units as u
 import astropy.coordinates as c
-import scipy.spatial as sp
 
 # cannot compare "unit" objects to python's None. 
 # creating an "unspecified" fundamental unit to signify that 
