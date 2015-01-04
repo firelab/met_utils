@@ -300,22 +300,23 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
         count   = bafile.variables['count']
         lc_edges = landcover_classification(bafile.variables['landcover'][:])
         lc_type = rv.CutpointReduceVar(count.shape[:-1], 2, lc_edges)
-        #timelim = len(indfile.dimensions['days'])-1
-        timelim = 15
+        timelim = len(indfile.dimensions['days'])-1
         filevars = [ indfile.variables[iname] for iname in indices_names ] 
         for i_day in range(10,timelim) : 
             print i_day
             day_data = [ f[i_day,:] for f in filevars ]
             i_conditions = zip(*day_data)
             ba_day = count[...,i_day]
-            ba_forest = lc_type.sum(0,ba_day)
-            ba_nonforest = lc_type.sum(1,ba_day)
-            ba_other     = lc_type.sum(2,ba_day)
+            ba_total = np.sum(ba_day, axis=2)
+            #ba_forest = lc_type.sum(0,ba_day)
+            #ba_nonforest = lc_type.sum(1,ba_day)
+            #ba_other     = lc_type.sum(2,ba_day)
             
-            ba_forest_cmp = ca.compress(ba_forest)
-            ba_nonforest_cmp = ca.compress(ba_nonforest)
-            ba_other_cmp = ca.compress(ba_other)
-            ba_total_cmp = ba_forest_cmp + ba_nonforest_cmp + ba_other_cmp
+            #ba_forest_cmp = ca.compress(ba_forest)
+            #ba_nonforest_cmp = ca.compress(ba_nonforest)
+            #ba_other_cmp = ca.compress(ba_other)
+            #ba_total_cmp = ba_forest_cmp + ba_nonforest_cmp + ba_other_cmp
+            ba_total_cmp = ca.compress(ba_total)
             
             
             # per bin ba totals (units of modis pixels)
@@ -323,7 +324,8 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
             for i_tot,ba_tot in enumerate(ba_total_cmp) : 
                 if ba_tot is ma.masked  :
                     continue
-                burned_total.put_record(i_conditions[i_tot], weight=ba_tot)
+                if ba_tot > 0 : 
+                    burned_total.put_record(i_conditions[i_tot], weight=ba_tot)
             
             # per bin occurrence totals (units of 0.5 deg cells)
             occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
