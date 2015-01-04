@@ -18,6 +18,7 @@ import window as w
 import sun
 import gsi
 import precipitation as p
+import netCDF4 as nc
 
 
 DRY_DAY_PRECIP = (3.0 * u.mm).to(u.kg/(u.m**2), equivalencies=p.precipitation())

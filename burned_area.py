@@ -300,7 +300,8 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
         count   = bafile.variables['count']
         lc_edges = landcover_classification(bafile.variables['landcover'][:])
         lc_type = rv.CutpointReduceVar(count.shape[:-1], 2, lc_edges)
-        timelim = len(indfile.dimensions['days'])-1
+        #timelim = len(indfile.dimensions['days'])-1
+        timelim = 15
         filevars = [ indfile.variables[iname] for iname in indices_names ] 
         for i_day in range(10,timelim) : 
             print i_day
@@ -341,7 +342,7 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
     
     # iterate over all the bins, extracting the time series and adding to the 
     # sparse histogram
-    it = np.nditer(ratio_histogram.H, flags['multi_index'])
+    it = np.nditer(burned_total.H, flags=['multi_index'])
     while not it.finished : 
         combo = it.multi_index
         i_extract = combo + (Ellipsis,)
@@ -487,7 +488,7 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
         minmax = oi.multifile_minmax(ind_template, ind_names, years=minmaxyears)
         
     if not ('__iter__' in dir(bins)) : 
-        bins = [ bins ] * len(years)
+        bins = [ bins ] * len(ind_names)
     minmax = zip(minmax[0], minmax[1], bins)
 
     # compute histogram
@@ -592,7 +593,7 @@ def write_raw_ratio_file(outfile, ratios, ind_names, minmax) :
     ofile.createDimension('day_of_year', ratios.shape[-2])
     ofile.createDimension('year', ratios.shape[-1])
     
-    rat = ofile.createVariable('raw_ratios', dtype=np.float64, dims=( ind_names + ('day_of_year','year')))
+    rat = ofile.createVariable('raw_ratios', np.float64, dimensions=( ind_names + ['day_of_year','year']))
     rat[:] = ratios
     
     ofile.close() 
@@ -615,7 +616,7 @@ def ba_multiyear_ratios(years, ba_template, ind_template, ind_names,
         minmax = oi.multifile_minmax(ind_template, ind_names, years=minmaxyears)
         
     if not ('__iter__' in dir(bins)) : 
-        bins = [ bins ] * len(years)
+        bins = [ bins ] * len(ind_names)
     minmax = zip(minmax[0], minmax[1], bins)
 
     # compute histogram
@@ -623,7 +624,7 @@ def ba_multiyear_ratios(years, ba_template, ind_template, ind_names,
     
     # write output
     if histo_outfile is not None : 
-        ah.save_sparse_histo(histo, histo_outfile)
+        ah.save_sparse_histos(histo, histo_outfile)
     if ratio_outfile is not None: 
         write_raw_ratio_file(ratio_outfile, ratios, ind_names, minmax)
 

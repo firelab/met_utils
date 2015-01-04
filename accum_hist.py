@@ -86,7 +86,10 @@ class SparseKeyedHistogram (object) :
         self.bins = bins
         self.threshold = threshold
         self.default = None
-        self.default_minmax = default_minmax
+        if default_minmax is not None : 
+            self.default_minmax = default_minmax
+        else : 
+            self.default_minmax = (0, threshold-1, threshold)
         self.default_contrib = {}
         self.histograms = {}
         self._init_default()
