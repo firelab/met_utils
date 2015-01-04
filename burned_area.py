@@ -17,6 +17,7 @@ import pandas as pd
 import orchidee_indices as oi
 import accum_hist as ah
 import trend
+import geo_ca as gca
 from osgeo import ogr
 
 
@@ -264,6 +265,95 @@ def ba_compare_year(indicesfile, bafile, outfile=None, support=None, reduction=N
 
     return all_data_frame
 
+def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
+    """computes histogram of ratio of MODIS BA to 0.5x0.5 deg occurrence
+    
+    Considering each day an independent measurement of the entire study area, 
+    the ratio of total MODIS BA counts to total 0.5x0.5 deg cells is computed 
+    for each parameter bin. Each parameter bin gets at most one observation per 
+    day, and this observation embodies all 0.5x0.5deg cells in that bin for that
+    day.
+    """ 
+    one_day = len(ind_files[0].dimensions['land'])
+    num_years = len(ind_files)
+    max_days = 365
+    histo_shape = zip(*minmax)[2]
+    ratio_shape = histo_shape + (max_days,num_years)
+    ratios = ma.masked_all(ratio_shape)
+    
+    
+    
+    # these two count 0.5 x 0.5 degree cells
+    burned_occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
+
+    # these four count individual modis detections
+    burned_forest = ah.AccumulatingHistogramdd(minmax=minmax) 
+    burned_not_forest = ah.AccumulatingHistogramdd(minmax=minmax)
+    burned_other = ah.AccumulatingHistogramdd(minmax=minmax)
+
+    ca = gca.GeoCompressedAxes(ind_files[0], 'land') 
+    ca.set_clip_box(45, 60, 60, 120)
+    
+    for i_year in range(len(ind_files)) : 
+        indfile = ind_files[i_year]
+        bafile  = ba_files[i_year]
+        count   = bafile.variables['count']
+        lc_edges = landcover_classification(bafile.variables['landcover'][:])
+        lc_type = rv.CutpointReduceVar(count.shape[:-1], 2, lc_edges)
+        timelim = len(indfile.dimensions['days'])-1
+        filevars = [ indfile.variables[iname] for iname in indices_names ] 
+        for i_day in range(1,timelim) : 
+            print i_day
+            day_data = [ f[i_day,:] for f in filevars ]
+            i_conditions = zip(*day_data)
+            ba_day = count[...,i_day]
+            ba_forest = lc_type.sum(0,ba_day)
+            ba_nonforest = lc_type.sum(1,ba_day)
+            ba_other     = lc_type.sum(2,ba_day)
+            
+            ba_forest_cmp = ca.compress(ba_forest)
+            ba_nonforest_cmp = ca.compress(ba_nonforest)
+            ba_other_cmp = ca.compress(ba_other)
+            ba_total_cmp = ba_forest_cmp + ba_nonforest_cmp + ba_other_cmp
+            
+            
+            # per bin ba totals (units of modis pixels)
+            burned_total = ah.AccumulatingHistogramdd(minmax=minmax)
+            for i_tot,ba_tot in enumerate(ba_total_cmp) : 
+                if ba_tot is ma.masked  :
+                    continue
+                burned_total.put_record(i_conditions[i_tot], weight=ba_tot)
+            
+            # per bin occurrence totals (units of 0.5 deg cells)
+            occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
+            for i_window,mask in enumerate(ca.get_vec_mask()) : 
+                if not mask : 
+                    occurrence.put_record(i_conditions[i_window])
+            
+            # calculate ratio
+            i_occurrence = np.where(occurrence.H > 0)
+            num_occurrence = len(i_occurrence[0])
+            i_occ_oneday = i_occurrence + ( np.array([i_day]*num+occurrence), np.array([i_year]*num_occurrence))
+            ratios[i_occ_oneday] = burned_total.H[i_occurrence]/occurrence.H[i_occurrence]
+            
+    # the result 
+    ratio_histogram = ah.SparseKeyedHistogram(minmax=minmax)
+    
+    # iterate over all the bins, extracting the time series and adding to the 
+    # sparse histogram
+    it = np.nditer(ratio_histogram.H, flags['multi_index'])
+    while not it.finished : 
+        combo = it.multi_index
+        i_extract = combo + (Ellipsis,)
+        bin_data = ratios[i_extract]
+        bin_data = bin_data.compressed()
+        if bin_data.size > 0 : 
+            ratio_histogram.put_combo(combo, bin_data, units=False)
+        it.iternext()
+
+    return (ratios, ratio_histogram)
+
+            
 
 def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) : 
     """calculates combined index-oriented and MODIS BA oriented histograms
@@ -344,8 +434,8 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) :
     return (occurrence, burned_occurrence, burned_forest, burned_not_forest, 
             burned_other, burned_total)
 
-def write_multiyear_histogram_file(outfile, histos, ind_names, minmax)  :
-    """write a multiyear histogram netcdf file"""
+def create_multiyear_histogram_file(outfile, ind_names, minmax) : 
+    """creates a histogram file with dimensions and coordinate variables"""
     ofile = nc.Dataset(outfile, 'w')
         
     # create dimensions
@@ -356,7 +446,16 @@ def write_multiyear_histogram_file(outfile, histos, ind_names, minmax)  :
         binsize    = float(cur_max - cur_min)/cur_bins
         cv[:] = np.arange(cur_min, cur_max, binsize)
         cv.binsize = binsize
+        
+    return ofile
+    
 
+def write_multiyear_histogram_file(outfile, histos, ind_names, minmax)  :
+    """write a multiyear histogram netcdf file"""
+
+    # create file, dimensions, variables
+    ofile = create_multiyear_histogram_file(outfile, ind_names, minmax)
+    
     # store variables
     names = [ 'occurrence', 'burned_occurrence', 'burned_forest', 'burned_not_forest',
                   'burned_other', 'burned_total'] 
@@ -484,4 +583,53 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
     
     return (shisto_total, shisto_forest, shisto_not_forest)
                          
+def write_raw_ratio_file(outfile, ratios, ind_names, minmax) : 
     
+    # create file/dimensions/coordinate variables
+    ofile = create_multiyear_histogram_file(outfile, ind_names, minmax) 
+    
+    # add dimensions for days and years
+    ofile.createDimension('day_of_year', ratios.shape[-2])
+    ofile.createDimension('year', ratios.shape[-1])
+    
+    rat = ofile.createVariable('raw_ratios', dtype=np.float64, dims=( ind_names + ('day_of_year','year')))
+    rat[:] = ratios
+    
+    ofile.close() 
+    
+def ba_multiyear_ratios(years, ba_template, ind_template, ind_names, 
+                histo_outfile=None, ratio_outfile=None, bins=10, minmaxyears=None) :
+    """computes multiyear histograms and stores in a netcdf file."""
+
+    # open netcdf files
+    bafiles = [ ]
+    indfiles = [ ] 
+    for y in years : 
+        bafiles.append(nc.Dataset(ba_template % y))
+        indfiles.append(nc.Dataset(ind_template % y))
+
+    # compute min/max
+    if minmaxyears is None :
+        minmax = oi.multifile_minmax(indfiles, ind_names)
+    else :
+        minmax = oi.multifile_minmax(ind_template, ind_names, years=minmaxyears)
+        
+    if not ('__iter__' in dir(bins)) : 
+        bins = [ bins ] * len(years)
+    minmax = zip(minmax[0], minmax[1], bins)
+
+    # compute histogram
+    ratios, histo = ba_ratio_histograms(bafiles, indfiles, ind_names, minmax)
+    
+    # write output
+    if histo_outfile is not None : 
+        ah.save_sparse_histo(histo, histo_outfile)
+    if ratio_outfile is not None: 
+        write_raw_ratio_file(ratio_outfile, ratios, ind_names, minmax)
+
+    # close netcdf files
+    for i_files in range(len(years)) : 
+        bafiles[i_files].close()
+        indfiles[i_files].close()
+
+    return ratios, histo
