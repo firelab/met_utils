@@ -54,6 +54,13 @@ class AccumulatingHistogramdd (object)  :
         self.count += 1
         self.total += weight
         
+    def put_all_bins(self, H) :
+        """Add the given bins to the existing ones."""
+        self.H += H
+        self.count += np.count_nonzero(H)
+        self.total += np.sum(H)
+        
+        
         
 class SparseKeyedHistogram (object) : 
     """Stores a histogram at each bin
