@@ -302,7 +302,7 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
         lc_type = rv.CutpointReduceVar(count.shape[:-1], 2, lc_edges)
         timelim = len(indfile.dimensions['days'])-1
         filevars = [ indfile.variables[iname] for iname in indices_names ] 
-        for i_day in range(1,timelim) : 
+        for i_day in range(10,timelim) : 
             print i_day
             day_data = [ f[i_day,:] for f in filevars ]
             i_conditions = zip(*day_data)
@@ -333,7 +333,7 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
             # calculate ratio
             i_occurrence = np.where(occurrence.H > 0)
             num_occurrence = len(i_occurrence[0])
-            i_occ_oneday = i_occurrence + ( np.array([i_day]*num+occurrence), np.array([i_year]*num_occurrence))
+            i_occ_oneday = i_occurrence + ( np.array([i_day]*num_occurrence), np.array([i_year]*num_occurrence))
             ratios[i_occ_oneday] = burned_total.H[i_occurrence]/occurrence.H[i_occurrence]
             
     # the result 
