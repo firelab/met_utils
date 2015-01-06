@@ -196,7 +196,8 @@ class SparseHistoFit (object) :
     each bin with a functional form. The user may then draw from a probability 
     distribution based on the histogram.
     """
-    def __init__(self, histo=None, ff_name=None, ff_dict=forms, weighted=False, min_npts=10) : 
+    def __init__(self, histo=None, ff_name=None, ff_dict=forms, weighted=False, 
+                min_npts=10, normalize=True) : 
         """specify the histogram and functional form to use for initialization, or none"""
         self.fits = {}
         self.default_fit = None
@@ -210,7 +211,7 @@ class SparseHistoFit (object) :
             self._index = ah.init_indexers(self.minmax)
             self.default_contrib = histo.default_contrib
             
-            self._fit_functional_form(histo, weighted, min_npts)
+            self._fit_functional_form(histo, weighted, min_npts, normalize)
             
             seed(self)
         else: 
@@ -219,17 +220,25 @@ class SparseHistoFit (object) :
     def _init_ff(self, ff) : 
         self._fit_class = ff
         
-    def _fit_functional_form(self, histo, weighted, min_npts) : 
+    def _fit_functional_form(self, histo, weighted, min_npts, normalize) : 
         if weighted : 
             default = histo.default_weighted
         else : 
             default = histo.default
             
+        if normalize : 
+            scale = 1./np.sum(default)
+            default = scale * default
+            
         #initialize parameters for all the bins.
         for i_combo in histo.get_combos(units=False) : 
             cur_hist = histo.get_histogram(i_combo, weighted=weighted, units=False)
             if np.count_nonzero(cur_hist) >= min_npts : 
-                H_fit = self._fit_class(histo.get_histogram(i_combo, weighted=weighted, units=False), 
+                cur_histo = histo.get_histogram(i_combo, weighted=weighted, units=False)
+                if normalize : 
+                    scale = 1./np.sum(cur_histo)
+                    cur_histo = scale * cur_histo
+                H_fit = self._fit_class(cur_histo, 
                            bin_center(histo.get_edges(i_combo, units=False)))
                 self.fits[i_combo] = H_fit
                            
