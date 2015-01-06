@@ -292,7 +292,7 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
     burned_other = ah.AccumulatingHistogramdd(minmax=minmax)
 
     ca = gca.GeoCompressedAxes(ind_files[0], 'land') 
-    ca.set_clip_box(45, 60, 60, 120)
+    ca.set_clip_box(42.5, 66.5, 22, 130)
     
     for i_year in range(len(ind_files)) : 
         indfile = ind_files[i_year]
@@ -338,23 +338,30 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
             num_occurrence = len(i_occurrence[0])
             i_occ_oneday = i_occurrence + ( np.array([i_day]*num_occurrence), np.array([i_year]*num_occurrence))
             ratios[i_occ_oneday] = burned_total.H[i_occurrence]/occurrence.H[i_occurrence]
+
+    ratio_histogram = compute_ratio_histo(ratios, minmax)
             
+    return (ratios, ratio_histogram)
+
+def compute_ratio_histo(ratios, minmax, min_bins=5): 
     # the result 
     ratio_histogram = ah.SparseKeyedHistogram(minmax=minmax)
+
     
     # iterate over all the bins, extracting the time series and adding to the 
     # sparse histogram
-    it = np.nditer(burned_total.H, flags=['multi_index'])
+    just_the_bins = ratios[...,0,0]
+    it = np.nditer(just_the_bins, flags=['multi_index'])
     while not it.finished : 
         combo = it.multi_index
         i_extract = combo + (Ellipsis,)
         bin_data = ratios[i_extract]
         bin_data = bin_data.compressed()
         if bin_data.size > 0 : 
-            ratio_histogram.put_combo(combo, bin_data, units=False)
+            ratio_histogram.put_combo(combo, bin_data, units=False,min_bins=min_bins)
         it.iternext()
 
-    return (ratios, ratio_histogram)
+    return ratio_histogram
 
             
 
@@ -526,6 +533,18 @@ def select_data(dataframe, names, i_count, indexer, dim_bins, lc_codes=None) :
         
     return dataframe[i_data]
 
+def read_multiyear_minmax( bahist, dimnames ) : 
+
+    mmb = [] 
+    binsizes = [ ]
+    for dimname in dimnames: 
+        dim = bahist.dimensions[dimname]
+        cv = bahist.variables[dimname][:]
+        binsizes.append( bahist.variables[dimname].binsize )
+        mmb.append( (cv[0], cv[-1]+binsizes[-1], len(dim)))
+
+    return mmb, binsizes
+
 def sparse_multiyear_histogram(years, csv_template, bahistfile, 
                             count_threshold=50, bins=25, out_template=None) : 
     """computes and optionally saves sparse histograms of MODIS BA counts"""
@@ -541,13 +560,7 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
     compare = compare[ np.logical_and(compare.icol(0)>=10,compare.icol(0)<364) ] 
     
     # get min/max/bin from multiyear histogram file
-    mmb = [] 
-    binsizes = [ ]
-    for dimname in counts.dimensions: 
-        dim = bahist.dimensions[dimname]
-        cv = bahist.variables[dimname][:]
-        binsizes.append( bahist.variables[dimname].binsize )
-        mmb.append( (cv[0], cv[-1]+binsizes[-1], len(dim)))
+    mmb, binsizes = read_multiyear_minmax(bahist,counts.dimensions)
         
     # create an indexer
     index = ah.init_indexers(mmb) 
