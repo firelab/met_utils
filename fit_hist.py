@@ -196,7 +196,7 @@ class SparseHistoFit (object) :
     each bin with a functional form. The user may then draw from a probability 
     distribution based on the histogram.
     """
-    def __init__(self, histo=None, ff_name=None, ff_dict=forms, weighted=False) : 
+    def __init__(self, histo=None, ff_name=None, ff_dict=forms, weighted=False, min_npts=10) : 
         """specify the histogram and functional form to use for initialization, or none"""
         self.fits = {}
         self.default_fit = None
@@ -210,7 +210,7 @@ class SparseHistoFit (object) :
             self._index = ah.init_indexers(self.minmax)
             self.default_contrib = histo.default_contrib
             
-            self._fit_functional_form(histo, weighted)
+            self._fit_functional_form(histo, weighted, min_npts)
             
             seed(self)
         else: 
@@ -219,7 +219,7 @@ class SparseHistoFit (object) :
     def _init_ff(self, ff) : 
         self._fit_class = ff
         
-    def _fit_functional_form(self, histo, weighted=False, min_npts=10) : 
+    def _fit_functional_form(self, histo, weighted, min_npts) : 
         if weighted : 
             default = histo.default_weighted
         else : 
