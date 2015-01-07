@@ -280,6 +280,7 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
     histo_shape = zip(*minmax)[2]
     ratio_shape = histo_shape + (max_days,num_years)
     ratios = ma.masked_all(ratio_shape)
+    halfdeg_counts = ma.masked_all(ratio_shape)
     
     
     
@@ -338,8 +339,9 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
             num_occurrence = len(i_occurrence[0])
             i_occ_oneday = i_occurrence + ( np.array([i_day]*num_occurrence), np.array([i_year]*num_occurrence))
             ratios[i_occ_oneday] = burned_total.H[i_occurrence]/occurrence.H[i_occurrence]
+            halfdeg_counts[...,i_day,i_year] = occurrence.H
 
-    ratio_histogram = compute_ratio_histo(ratios, minmax)
+    ratio_histogram = compute_ratio_histo(ratios, halfdeg_counts, minmax)
             
     return (ratios, ratio_histogram)
 
@@ -599,7 +601,7 @@ def sparse_multiyear_histogram(years, csv_template, bahistfile,
     
     return (shisto_total, shisto_forest, shisto_not_forest)
                          
-def write_raw_ratio_file(outfile, ratios, ind_names, minmax) : 
+def write_raw_ratio_file(outfile, ratios, halfdeg_counts, ind_names, minmax) : 
     
     # create file/dimensions/coordinate variables
     ofile = create_multiyear_histogram_file(outfile, ind_names, minmax) 
@@ -607,9 +609,15 @@ def write_raw_ratio_file(outfile, ratios, ind_names, minmax) :
     # add dimensions for days and years
     ofile.createDimension('day_of_year', ratios.shape[-2])
     ofile.createDimension('year', ratios.shape[-1])
+    vardims  =  ind_names + ['day_of_year','year']
     
-    rat = ofile.createVariable('raw_ratios', np.float64, dimensions=( ind_names + ['day_of_year','year']))
+    # save the ratios
+    rat = ofile.createVariable('raw_ratios', np.float64, dimensions=vardims)
     rat[:] = ratios
+    
+    # save the occurrence counts
+    ho = ofile.createVariable('indices_occurrence', np.float64, dimensions=vardims)
+    ho[:] = halfdeg_counts
     
     ofile.close() 
     
@@ -635,13 +643,13 @@ def ba_multiyear_ratios(years, ba_template, ind_template, ind_names,
     minmax = zip(minmax[0], minmax[1], bins)
 
     # compute histogram
-    ratios, histo = ba_ratio_histograms(bafiles, indfiles, ind_names, minmax)
+    ratios, halfdeg_counts, histo = ba_ratio_histograms(bafiles, indfiles, ind_names, minmax)
     
     # write output
     if histo_outfile is not None : 
         ah.save_sparse_histos(histo, histo_outfile)
     if ratio_outfile is not None: 
-        write_raw_ratio_file(ratio_outfile, ratios, ind_names, minmax)
+        write_raw_ratio_file(ratio_outfile, ratios, halfdeg_counts, ind_names, minmax)
 
     # close netcdf files
     for i_files in range(len(years)) : 
