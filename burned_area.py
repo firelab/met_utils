@@ -341,9 +341,9 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
             ratios[i_occ_oneday] = burned_total.H[i_occurrence]/occurrence.H[i_occurrence]
             halfdeg_counts[...,i_day,i_year] = occurrence.H
 
-    ratio_histogram = compute_ratio_histo(ratios, halfdeg_counts, minmax)
+    ratio_histogram = compute_ratio_histo(ratios, minmax)
             
-    return (ratios, ratio_histogram)
+    return (ratios, halfdeg_counts, ratio_histogram)
 
 def compute_ratio_histo(ratios, minmax, min_bins=5): 
     # the result 
