@@ -34,7 +34,7 @@ class GeoCompressedAxes ( trend.CompressedAxes )  :
         
     def set_clip_box(self, min_lat, max_lat, min_lon, max_lon) : 
         """set this object's mask to the provided lat/lon box"""
-        mask = ma.masked_all(self._dimshape, dtype=np.bool)
+        mask = np.ones(self._dimshape, dtype=np.bool)
         
         i_min_lat, i_min_lon = self._samp.get_index( (min_lat, min_lon))
         i_max_lat, i_max_lon = self._samp.get_index( (max_lat, max_lon))
