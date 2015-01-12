@@ -211,6 +211,12 @@ class SparseHistoFit (object) :
             self._index = ah.init_indexers(self.minmax)
             self.default_contrib = histo.default_contrib
             
+            combos = histo.get_combos(units=False)
+            self.x_min = {} 
+            for c in combos : 
+                self.x_min[c] = np.mean(histo.get_edges(c, units=False)[:2])
+            self.default_x_min = np.mean(histo.default_edges[:2])
+            
             self._fit_functional_form(histo, weighted, min_npts, normalize)
             
             seed(self)
@@ -226,8 +232,9 @@ class SparseHistoFit (object) :
         else : 
             default = histo.default
             
-        if normalize : 
-            scale = 1./np.sum(default)
+        if normalize :
+            default_binsize = histo.default_edges[1] - histo.default_edges[0] 
+            scale = 1./(np.sum(default)*default_binsize)
             default = scale * default
             
         #initialize parameters for all the bins.
@@ -235,8 +242,10 @@ class SparseHistoFit (object) :
             cur_hist = histo.get_histogram(i_combo, weighted=weighted, units=False)
             if np.count_nonzero(cur_hist) >= min_npts : 
                 cur_histo = histo.get_histogram(i_combo, weighted=weighted, units=False)
-                if normalize : 
-                    scale = 1./np.sum(cur_histo)
+                if normalize :
+                    cur_edges = histo.get_edges(i_combo, units=False)
+                    cur_binsize = cur_edges[1]-cur_edges[0] 
+                    scale = 1./(np.sum(cur_histo)*cur_binsize)
                     cur_histo = scale * cur_histo
                 H_fit = self._fit_class(cur_histo, 
                            bin_center(histo.get_edges(i_combo, units=False)))
@@ -246,19 +255,26 @@ class SparseHistoFit (object) :
         self.default_fit = self._fit_class( default, 
                         bin_center(histo.default_edges ))
                  
-    def draw(self, combo, n=1) :
+    def draw(self, combo, n=1, units=True) :
         """computes one or more histogram bin value(s) by inverting the fit"""
-        i_combo = self._index.get_index(combo)
+        i_combo = combo
+        if units : 
+            i_combo = self._index.get_index(combo)
+            
         if n == 1 : 
             x = random()
         else : 
             x = np.empty( (n,), dtype=np.float64)
             for i in range(n) : 
                 x[i] = random()
-        if i_combo in self.params : 
+        if i_combo in self.fits : 
             fit = self.fits[i_combo]
+#            y_max = fit.evaluate(self.x_min[i_combo])
+#            vals = fit.inverse(x*y_max)
             vals = fit.inverse(x)
-        elif i_combo in self.default_contrib : 
+        elif i_combo in self.default_contrib :
+#            y_max = self.default_fit.evaluate(self.default_x_min) 
+#            vals = self.default_fit.inverse(x*y_max)
             vals = self.default_fit.inverse(x)
         else : 
             if n==1:
