@@ -274,7 +274,6 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
     day, and this observation embodies all 0.5x0.5deg cells in that bin for that
     day.
     """ 
-    one_day = len(ind_files[0].dimensions['land'])
     num_years = len(ind_files)
     max_days = 365
     histo_shape = zip(*minmax)[2]
@@ -283,15 +282,6 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
     halfdeg_counts = ma.masked_all(ratio_shape)
     
     
-    
-    # these two count 0.5 x 0.5 degree cells
-    burned_occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
-
-    # these four count individual modis detections
-    burned_forest = ah.AccumulatingHistogramdd(minmax=minmax) 
-    burned_not_forest = ah.AccumulatingHistogramdd(minmax=minmax)
-    burned_other = ah.AccumulatingHistogramdd(minmax=minmax)
-
     ca = gca.GeoCompressedAxes(ind_files[0], 'land') 
     ca.set_clip_box(42.5, 66.5, 22, 130)
     
@@ -299,8 +289,6 @@ def ba_ratio_histograms(ba_files, ind_files, indices_names,minmax) :
         indfile = ind_files[i_year]
         bafile  = ba_files[i_year]
         count   = bafile.variables['count']
-        lc_edges = landcover_classification(bafile.variables['landcover'][:])
-        lc_type = rv.CutpointReduceVar(count.shape[:-1], 2, lc_edges)
         timelim = len(indfile.dimensions['days'])-1
         filevars = [ indfile.variables[iname] for iname in indices_names ] 
         for i_day in range(10,timelim) : 
