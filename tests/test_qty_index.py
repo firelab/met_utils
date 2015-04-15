@@ -154,6 +154,22 @@ class TestUnitIndexNdArray(unittest.TestCase) :
         self.ui_array.put(target, 5000)
         self.assertEqual(self.data[target_i], 5000)
         self.assertEqual(self.ui_array.get(target), 5000)
+
+class TestIntervalSamplingFunction (unittest.TestCase)  : 
+    def test_identity(self) :
+        """indices and values are the same"""
+        cutpoints = range(101) # 0...100 inclusive
+        isf = q.IntervalSamplingFunction(cutpoints)
+        result = map(isf.get_index, cutpoints)
+        self.assertTrue(np.all( result == cutpoints))
+        
+    def test_middle_val(self) : 
+        """specify numbers not in the cutpoint array"""
+        cutpoints = range(101) # 0...100 inclusive
+        isf = q.IntervalSamplingFunction(cutpoints)
+        testpoints = np.arange(0.5, 100,1)
+        result = map(isf.get_index, testpoints)
+        self.assertTrue(np.all( result == cutpoints[:-1]))
         
 
 class TestLookupTable (unittest.TestCase) : 

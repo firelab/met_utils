@@ -117,7 +117,25 @@ class CoordinateVariableSamplingFunction (SamplingFunction)  :
         self.cv = cv
         
     def get_index(self, unit_val) : 
-        return self.cv.index(unit_val)   
+        return self.cv.index(unit_val)
+        
+class IntervalSamplingFunction ( SamplingFunction ) : 
+    """Reduces a continuous variable into a sequence of intervals
+    
+    Given an array of monotonically increasing cutpoints, this function
+    locates the interval number associated with a provided value. The 
+    value in the cutpoint array is the lower bound of the interval at that 
+    index.
+    """
+    def __init__(self, cutpoints) : 
+        self.cutpoints = cutpoints
+        
+    def get_index(self, unit_val) : 
+        i_test =  0
+        while (i_test < (len(self.cutpoints)-1)) and ( unit_val >= self.cutpoints[i_test+1]):
+            i_test += 1
+        
+        return i_test    
             
 class OrthoIndexer (SamplingFunction)  : 
     """Combines multiple SampleFunctions into one
