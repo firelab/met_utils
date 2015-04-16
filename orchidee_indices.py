@@ -21,6 +21,7 @@ import window as w
 import sun
 import gsi
 import precipitation as p
+import percentile as pct
 import netCDF4 as nc
 
 
@@ -536,7 +537,7 @@ def percentile_indices(datasets, indices, outfile, years=None,
             if (i_land % 100) == 0 : 
                 print "%s - Pixel %d" % (ind_name, i_land)
               
-            pf = p.PercentileFactory(num_time)
+            pf = pct.PercentileFactory(num_time)
             
             # collect the data for a single land pixel from all the input
             # files
