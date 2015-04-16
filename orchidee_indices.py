@@ -2,6 +2,9 @@
 
 Code accepts an ORCHIDEE forcing file and an index filename. It computes various 
 indices from the met data and stores them in the outfile.
+
+Code can also summarize indices as percentiles. For this, the user must specify
+one or more files containing indices and a summary outfile.
 """
 
 import aggregator as agg
@@ -425,6 +428,15 @@ def indices_year(y, forcing_template, out_template) :
         ds.next()
     
     ds.close()
+    
+def multifile_open(datasets, years) : 
+    if years is not None : 
+        files = [ ]
+        for y in years : 
+            files.append(nc.Dataset(datasets %y))
+        datasets = files
+    return datasets
+    
 
 def multifile_minmax(datasets, indices, years=None) : 
     """calculates minimum and maximum of indices across multiple files
@@ -435,12 +447,8 @@ def multifile_minmax(datasets, indices, years=None) :
     the files for you.
     """
     
-    if years is not None : 
-        minmax_indfiles = [ ]
-        for y in years : 
-            minmax_indfiles.append(nc.Dataset(datasets %y))
-        datasets = minmax_indfiles
-
+    datasets = multifile_open(datasets, years)
+    
     num_ind = len(indices)
     minvals = ma.masked_all( (num_ind,), dtype=np.float64)
     maxvals = ma.masked_all( (num_ind,), dtype=np.float64)
@@ -464,4 +472,84 @@ def multifile_minmax(datasets, indices, years=None) :
 
     return (minvals,maxvals)
 
-
+def percentile_indices(datasets, indices, outfile, years=None, 
+    land_dim='land', time_slice=None) :
+    """Calculates cutpoints for integer percentile classes for the named indices.
+    
+    The indices for which percentiles are desired should be named in the 
+    indices variable.
+    
+    Input files may be specified either by providing an array of previously 
+    opened datasets in the "dataset" parameter, or by providing a filename 
+    template in the dataset parameter and a list of years to be included.
+    
+    The output file will contain a variable for each named index which will have
+    an array of cutpoints for integer percentiles for each land pixel. 
+    
+    All of the indices you specify need to have an identical dimensionality in
+    the input datasets. Cannot mix and match.
+    
+    You may change the default value of the name of the "land" dimension using 
+    the land_dim" parameter. If you would like to include a subset of data
+    each year along the time dimension, provide the slicing expression as 
+    "time_slice". 
+    """
+    datasets = multifile_open(datasets, years)
+    
+    out_data = nc.Dataset(outfile, 'w')
+    
+    num_ind = len(indices) 
+    num_years = len(datasets)
+    num_land = len(datasets[0].dimensions['land'])
+    d = datasets[0]
+    v = d.variables[indices[0]]
+    ipos_land = v.dimensions.index(land_dim)
+    ipos_time = not (ipos_land)
+    
+    # pre-compute the number of time elements which need to be assembled 
+    # from the files before computing percentiles.
+    # Pre-computing this makes the assumption that every year and every
+    # index has the same time dimension.
+    if time_slice is not None : 
+        num_time = (time_slice.end - time_slice.start) + 1
+        num_time *= num_years
+    else :
+        num_time = d.dimensions[v.dimensions[ipos_time]]
+        num_time *= num_years
+        time_slice = slice(None, None, None)
+        
+    # prep the output netcdf file
+    out_data.createDimension('land', num_land)
+    out_data.createDimension('percentile_cutpoints', 101)
+    
+    # loop over all the indices we're collecting data for
+    for i_indices in range(num_ind) : 
+        
+        # create a variable in the output file to contain the percentiles
+        ind_name = indices[i_indices]
+        cur_dtype = d.variables[ind_name].dtype
+        out_v = out_data.createVariable(ind_name, cur_dtype, 
+                   ('land','percentile_cutpoints'))
+        
+        # loop over all the land pixels
+        for i_land in range(num_land) :
+            if (i_land % 100) == 0 : 
+                print "%s - Pixel %d" % (ind_name, i_land)
+              
+            pf = p.PercentileFactory(num_time)
+            
+            # collect the data for a single land pixel from all the input
+            # files
+            for i_year in range(num_years) : 
+                d = datasets[i_year]
+                v = d.variables[i_indices]
+                if ipos_land == 0 : 
+                    pf.add_data(v[i_land, time_slice])
+                else : 
+                    pf.add_data(v[time_slice, i_land])
+                
+            samp_func = pf.compute_percentile()
+            
+            out_v[i_land,:] = samp_func.cutpoints
+            
+    out_data.close()
