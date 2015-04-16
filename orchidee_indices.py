@@ -497,7 +497,7 @@ def percentile_indices(datasets, indices, outfile, years=None,
     """
     datasets = multifile_open(datasets, years)
     
-    out_data = nc.Dataset(outfile, 'w')
+    out_templ = agg.NetCDFTemplate(datasets[0].filepath(), outfile)
     
     num_ind = len(indices) 
     num_years = len(datasets)
@@ -512,7 +512,7 @@ def percentile_indices(datasets, indices, outfile, years=None,
     # Pre-computing this makes the assumption that every year and every
     # index has the same time dimension.
     if time_slice is not None : 
-        num_time = (time_slice.end - time_slice.start) + 1
+        num_time = (time_slice.stop - time_slice.start) + 1
         num_time *= num_years
     else :
         num_time = d.dimensions[v.dimensions[ipos_time]]
@@ -520,8 +520,9 @@ def percentile_indices(datasets, indices, outfile, years=None,
         time_slice = slice(None, None, None)
         
     # prep the output netcdf file
-    out_data.createDimension('land', num_land)
-    out_data.createDimension('percentile_cutpoints', 101)
+    out_templ.copyVariable('nav_lat')
+    out_templ.copyVariable('nav_lon')
+    out_templ.createDimension('percentile_cutpoints', 101)
     
     # loop over all the indices we're collecting data for
     for i_indices in range(num_ind) : 
@@ -529,8 +530,8 @@ def percentile_indices(datasets, indices, outfile, years=None,
         # create a variable in the output file to contain the percentiles
         ind_name = indices[i_indices]
         cur_dtype = d.variables[ind_name].dtype
-        out_v = out_data.createVariable(ind_name, cur_dtype, 
-                   ('land','percentile_cutpoints'))
+        out_v = out_templ.create_variable(ind_name, 
+                   ('land','percentile_cutpoints'), cur_dtype)
         
         # loop over all the land pixels
         for i_land in range(num_land) :
@@ -543,7 +544,7 @@ def percentile_indices(datasets, indices, outfile, years=None,
             # files
             for i_year in range(num_years) : 
                 d = datasets[i_year]
-                v = d.variables[i_indices]
+                v = d.variables[ind_name]
                 if ipos_land == 0 : 
                     pf.add_data(v[i_land, time_slice])
                 else : 
@@ -553,4 +554,4 @@ def percentile_indices(datasets, indices, outfile, years=None,
             
             out_v[i_land,:] = samp_func.cutpoints
             
-    out_data.close()
+    out_templ.close()
