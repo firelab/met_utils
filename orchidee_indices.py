@@ -597,9 +597,9 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
         #loop over land pixels
         for pix in range(num_land) : 
             if ipos_land == 0 : 
-                out_v[pix, time_slice] = np.searchsorted(pct_index, in_index[pix,time_slice])
+                out_v[pix, time_slice] = np.searchsorted(pct_index[pix,:], in_index[pix,time_slice])
             else : 
-                out_v[time_slice, pix] = np.searchsorted(pct_index, in_index[time_slice, pix])
+                out_v[time_slice, pix] = np.searchsorted(pct_index[pix,:], in_index[time_slice, pix])
                 
     ds.close()
     out_templ.close()
