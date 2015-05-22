@@ -501,7 +501,7 @@ def percentile_indices(datasets, indices, outfile, years=None,
     
     num_ind = len(indices) 
     num_years = len(datasets)
-    num_land = len(datasets[0].dimensions['land'])
+    num_land = len(datasets[0].dimensions[land_dim])
     d = datasets[0]
     v = d.variables[indices[0]]
     ipos_land = v.dimensions.index(land_dim)
@@ -555,3 +555,52 @@ def percentile_indices(datasets, indices, outfile, years=None,
             out_v[i_land,:] = samp_func.cutpoints
             
     out_templ.close()
+
+def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
+                     time_slice=None): 
+    """Computes indices as percentile values and stores in output file.
+    
+    The indices which are converted to percentile values are present as variables
+    in the pctfile. pctfile contains the cutpoints for each variable's percentile
+    bins.
+    
+    Input file is specified by providing a filename as a dataset.
+    
+    Outfile specifies a name for the output file. The output file will contain 
+    a variable for each index, where the indices are represented as percentiles.
+    """
+    ds = nc.Dataset(dataset)
+    out_templ = agg.NetCDFTemplate(dataset, outfile)
+    
+    pct_ds = nc.Dataset(pctfile)
+    indices = [v for v in pct_ds.variables.keys() if v not in pct_ds.dimensions.keys()] 
+    indices.remove('nav_lat')
+    indices.remove('nav_lon')
+    num_land = len(ds.dimensions[land_dim])
+    
+    # pre-compute the number of time elements which need to be assembled 
+    # from the files before computing percentiles.
+    # Pre-computing this makes the assumption that every year and every
+    # index has the same time dimension.
+    if time_slice is None : 
+        time_slice = slice(None, None, None)
+
+    # loop over indices
+    for ind in indices : 
+        in_index = ds.variables[ind]
+        ipos_land = in_index.dimensions.index(land_dim)
+        pct_index = pct_ds.variables[ind]
+        
+        out_v = out_templ.create_variable(ind,
+            in_index.dimensions, np.int8)
+        
+        #loop over land pixels
+        for pix in range(num_land) : 
+            if ipos_land == 0 : 
+                out_v[pix, time_slice] = np.searchsorted(pct_index, in_index[pix,time_slice])
+            else : 
+                out_v[time_slice, pix] = np.searchsorted(pct_index, in_index[time_slice, pix])
+                
+    ds.close()
+    out_templ.close()
+    pct_ds.close()
