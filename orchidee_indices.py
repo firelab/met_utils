@@ -587,6 +587,7 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
 
     # loop over indices
     for ind in indices : 
+        print ind
         in_index = ds.variables[ind]
         ipos_land = in_index.dimensions.index(land_dim)
         pct_index = pct_ds.variables[ind]
@@ -594,12 +595,14 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
         out_v = out_templ.create_variable(ind,
             in_index.dimensions, np.int8)
         
-        #loop over land pixels
-        for pix in range(num_land) : 
+                
+        #loop over time slice 
+        for day in range(time_slice.start,time_slice.stop) : 
+            print day
             if ipos_land == 0 : 
-                out_v[pix, time_slice] = np.searchsorted(pct_index[pix,:], in_index[pix,time_slice])
+                out_v[:, day] = [np.searchsorted(pct_index[pix,:], in_index[pix,day]) for pix in range(num_land)] 
             else : 
-                out_v[time_slice, pix] = np.searchsorted(pct_index[pix,:], in_index[time_slice, pix])
+                out_v[day, :] = [np.searchsorted(pct_index[pix,:], in_index[day, pix]) for pix in range(num_land)]
                 
     ds.close()
     out_templ.close()
