@@ -577,6 +577,10 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
     indices.remove('nav_lat')
     indices.remove('nav_lon')
     num_land = len(ds.dimensions[land_dim])
+
+    # copy geolocation
+    out_templ.copyVariable('nav_lat')
+    out_templ.copyVariable('nav_lon')
     
     # pre-compute the number of time elements which need to be assembled 
     # from the files before computing percentiles.
@@ -590,7 +594,7 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
         print ind
         in_index = ds.variables[ind]
         ipos_land = in_index.dimensions.index(land_dim)
-        pct_index = pct_ds.variables[ind]
+        pct_index = pct_ds.variables[ind][:]
         
         out_v = out_templ.create_variable(ind,
             in_index.dimensions, np.int8)
@@ -600,9 +604,11 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
         for day in range(time_slice.start,time_slice.stop) : 
             print day
             if ipos_land == 0 : 
-                out_v[:, day] = [np.searchsorted(pct_index[pix,:], in_index[pix,day]) for pix in range(num_land)] 
+                in_day = in_index[:,day]
+                out_v[:, day] = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)] 
             else : 
-                out_v[day, :] = [np.searchsorted(pct_index[pix,:], in_index[day, pix]) for pix in range(num_land)]
+                in_day = in_index[day,:]
+                out_v[day, :] = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)]
                 
     ds.close()
     out_templ.close()
