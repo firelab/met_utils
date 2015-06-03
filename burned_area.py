@@ -495,6 +495,38 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
         indfiles[i_files].close()
 
     return histos
+    
+# a variant specialized to calculate percentile & univariate histograms
+def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names, 
+                outfile=None) :
+    """computes multiyear histograms and stores in a netcdf file."""
+
+    # open netcdf files
+    bafiles = [ ]
+    indfiles = [ ] 
+    for y in years : 
+        bafiles.append(nc.Dataset(ba_template % y))
+        indfiles.append(nc.Dataset(ind_template % y))
+
+    # compute min/max
+    minmax = [[0], [100], [101]]
+
+    for ind in ind_names : 
+        ind_list = [ ind ]
+        # compute histogram
+        histos = ba_multifile_histograms(bafiles, indfiles, ind_list, minmax)
+    
+        # write output
+        if outfile is not None : 
+            write_multiyear_histogram_file(outfile%ind, histos, ind_list, minmax)
+
+    # close netcdf files
+    for i_files in range(len(years)) : 
+        bafiles[i_files].close()
+        indfiles[i_files].close()
+
+    return histos
+
 
 def select_data(dataframe, names, i_count, indexer, dim_bins, lc_codes=None) : 
     u_lower = indexer.get_unit_val(i_count)
