@@ -509,7 +509,7 @@ def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names,
         indfiles.append(nc.Dataset(ind_template % y))
 
     # compute min/max
-    minmax = [[0], [100], [101]]
+    minmax = [[0, 100, 101]]
 
     for ind in ind_names : 
         ind_list = [ ind ]
