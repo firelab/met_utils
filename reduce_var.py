@@ -12,6 +12,11 @@ class ReduceVar (object) :
     factor. It then computes the appropriate descriptive statistics to arrive 
     at the value which is representative of the interval requested. 
     """
+    REDUCE_MIN     = 0
+    REDUCE_MAX     = 1
+    REDUCE_MEAN    = 2
+    REDUCE_SUM     = 3
+    REDUCE_LASTVAL = 4
     
     def __init__(self, shape, agg_axis, reduction) : 
         """specifies the aggregation characteristics
@@ -35,6 +40,19 @@ class ReduceVar (object) :
         end = begin + self.reduction
         i[self.agg_axis] = slice(begin, end)
         return i
+        
+    def reduce(self, method, i_agg, v) : 
+        """Allows the user to specify the method of reduction using REDUCE_xxxx variables"""
+        if method == ReduceVar.REDUCE_MIN  :
+            return self.min(i_agg,v)
+        if method == ReduceVar.REDUCE_MAX : 
+            return self.max(i_agg,v)
+        if method == ReduceVar.REDUCE_MEAN : 
+            return self.mean(i_agg, v)
+        if method == ReduceVar.REDUCE_SUM : 
+            return self.sum(i_agg, v)
+        if (method == ReduceVar.REDUCE_LASTVAL : 
+            return self.last_val(i_agg,v)
         
     def mean(self, i_agg, v) : 
         """computes the i_agg-th slice of reduced data from v using the mean"""
@@ -93,4 +111,10 @@ class CutpointReduceVar ( ReduceVar )  :
         end = self.cutpoints[i_agg+1]
         i[self.agg_axis] = slice(begin, end)
         return i
-        
+
+def monthly_aggregator(shape, agg_axis) : 
+    """returns a cutpoint reducer which can select months (assuming that inputs are daily.)"""
+    monthdays = [ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 ] 
+    cutpoints = np.concatenate( ((0,), np.cumsum(monthdays)-1))
+    return CutpointReduceVar(shape, agg_axis, cutpoints)
+    

@@ -182,7 +182,7 @@ def ba_year(year, template, ncfile, shapefile)  :
     shp.release_results(layer)    
     bac.close()
     
-
+REDUCE_MONTHLY = -1
 def ba_compare_year(indicesfile, bafile, outfile=None, support=None, reduction=None) : 
     """collates the various indices with burned area counts"""
 
@@ -206,8 +206,14 @@ def ba_compare_year(indicesfile, bafile, outfile=None, support=None, reduction=N
     # workaround: bug in index calculator does not calculate last day.
     time_samples = range(1,len(ba.dimensions['days']) - 1)
     if reduction is not None : 
-        grid_reducer = rv.ReduceVar(count.shape, 3, reduction)
-        cmp_reducer  = rv.ReduceVar(indicesvars[0].shape, 0, reduction)
+        if reduction == REDUCE_MONTHLY  : 
+            grid_reducer = rv.monthly_aggregator(count.shape, 3)
+            cmp_reducer  = rv.monthly_aggregator(indicesvars[0].shape,0)
+            grid_reducer.cutpoints[0]=1
+            cmp_reducer.cutpoints[1]=1
+        else : 
+            grid_reducer = rv.ReduceVar(count.shape, 3, reduction)
+            cmp_reducer  = rv.ReduceVar(indicesvars[0].shape, 0, reduction)
         time_samples = range(grid_reducer.reduced)
 
     ca = trend.CompressedAxes(indices, 'land')
