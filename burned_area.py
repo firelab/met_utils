@@ -183,12 +183,15 @@ def ba_year(year, template, ncfile, shapefile)  :
     bac.close()
     
 REDUCE_MONTHLY = -1
-def ba_compare_year(indicesfile, bafile, outfile=None, support=None, reduction=None) : 
+def ba_compare_year(indicesfile, bafile, outfile=None, indicesvarnames= None, support=None, reduction=None) : 
     """collates the various indices with burned area counts"""
 
     # interesting variables from the indicesfile
-    indicesvarnames = ['gsi_avg','fm1000','fm100','fm10','fm1','dd','t_max']
-    last_val_reduce = ['dd']
+    last_val_reduce = [ ] 
+    if indicesvarnames is None : 
+        indicesvarnames = ['gsi_avg','fm1000','fm100','fm10','fm1','dd','t_max']
+    if 'dd' in indicesvarnames : 
+        last_val_reduce = ['dd']
 
     indices = nc.Dataset(indicesfile)
     indicesvars = [indices.variables[v] for v in indicesvarnames]
