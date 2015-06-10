@@ -257,7 +257,8 @@ def ba_compare_year(indicesfile, bafile, outfile=None, indicesvarnames= None, su
                             day_v = cmp_reducer.last_val(i_time, v)
                         else : 
                             day_v = cmp_reducer.mean(i_time, v)
-                        
+
+                    # add a column for the current index    
                     lc_data[n] = day_v[i_nonzero]
     
                 day_data.append( pd.DataFrame( lc_data ) )
@@ -536,8 +537,47 @@ def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names,
 
     return histos
 
+def ba_univ_agg_multiyear_histogram(csv_files, years, agg_col, bins=range(0,102), 
+         weight_col=None) : 
+    """Univariate aggregation of dataset onto a histogram.
+    
+    Aggregates a single column of a series of datasets into a histogram. The 
+    filename pattern is specified in csv_files. The name of the column to 
+    aggregate is specified in agg_col. By default, 101 integer bins from 0 to 101
+    are specified (initial application is to support percentile binning). A
+    straight histogram is calculated by default, but naming a "weight column" 
+    allows for the computation of the weighted histogram.
+    
+    All of the CSV files must have a header row containing the column names as 
+    row zero, and must possess the column named in agg_col and (if specified) 
+    in weight_col.
+    """
+    if weight_col is None: 
+        acc_type = np.float
+    else :
+        acc_type = np.int
+        
+    accumulator = np.array( ( len(bins)-1, ), dtype = acc_type)
+    
+    for y in years : 
+        ds = pd.read_csv(csv_files % y, header=0)
+        if weight_col is None:  
+            cur = np.histogram(ds[agg_col], bins=bins)
+        else : 
+            cur = np.histogram(ds[agg_col], bins=bins, weights=ds[weight_col])
+        accumulator += cur
+        
+    return accumulator
+        
 
-def select_data(dataframe, names, i_count, indexer, dim_bins, lc_codes=None) : 
+def select_data(dataframe, names, i_count, indexer, dim_bins, lc_codes=None) :
+    """Selects rows in a dataframe based on criteria in multiple columns.
+    
+    This is largely intended to select data records contained within an 
+    "nd bin" from a dataset. The nd bin's nd index is specified by "i_count".
+    Each row represents a coordinate vector, where the columns represent the 
+    ordinate along a single axis.
+    """
     u_lower = indexer.get_unit_val(i_count)
     u_upper = indexer.get_unit_val(np.add(i_count,1))
     pegged = [i == d for i,d in zip(i_count,dim_bins)]
