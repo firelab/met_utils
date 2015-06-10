@@ -557,14 +557,14 @@ def ba_univ_agg_multiyear_histogram(csv_files, years, agg_col, bins=range(0,102)
     else :
         acc_type = np.int
         
-    accumulator = np.array( ( len(bins)-1, ), dtype = acc_type)
+    accumulator = np.zeros( ( len(bins)-1, ), dtype = acc_type)
     
     for y in years : 
         ds = pd.read_csv(csv_files % y, header=0)
         if weight_col is None:  
-            cur = np.histogram(ds[agg_col], bins=bins)
+            cur, bins = np.histogram(ds[agg_col], bins=bins)
         else : 
-            cur = np.histogram(ds[agg_col], bins=bins, weights=ds[weight_col])
+            cur, bins = np.histogram(ds[agg_col], bins=bins, weights=ds[weight_col])
         accumulator += cur
         
     return accumulator
