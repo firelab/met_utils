@@ -51,7 +51,7 @@ class ReduceVar (object) :
             return self.mean(i_agg, v)
         if method == ReduceVar.REDUCE_SUM : 
             return self.sum(i_agg, v)
-        if (method == ReduceVar.REDUCE_LASTVAL : 
+        if method == ReduceVar.REDUCE_LASTVAL : 
             return self.last_val(i_agg,v)
         
     def mean(self, i_agg, v) : 
