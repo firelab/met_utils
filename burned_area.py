@@ -553,9 +553,9 @@ def ba_univ_agg_multiyear_histogram(csv_files, years, agg_col, bins=range(0,102)
     in weight_col.
     """
     if weight_col is None: 
-        acc_type = np.float
-    else :
         acc_type = np.int
+    else :
+        acc_type = np.float
         
     accumulator = np.zeros( ( len(bins)-1, ), dtype = acc_type)
     
