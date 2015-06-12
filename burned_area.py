@@ -394,21 +394,36 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) :
     ca = trend.CompressedAxes(ind_files[0], 'land') 
 
     for i_year in range(len(ind_files)) : 
+        # fetch the correct file handles for this year
         indfile = ind_files[i_year]
         bafile  = ba_files[i_year]
+        
+        # get BA handle and initialize an object to aggregate BA by
+        # landcover type
         count   = bafile.variables['count']
         lc_edges = landcover_classification(bafile.variables['landcover'][:])
         lc_type = rv.CutpointReduceVar(count.shape[:-1], 2, lc_edges)
+        
+        # get number of samples along the time dimension
         timelim = len(indfile.dimensions['days'])-1
+        
+        # get variable references for each index
         filevars = [ indfile.variables[iname] for iname in indices_names ] 
+        
         for i_day in range(1,timelim) : 
             print i_day
+            # grab one day's worth of data out of each index variable
             day_data = [ f[i_day,:] for f in filevars ]
+            
+            # grab one day's worth of data 
             ba_day = count[...,i_day]
+            
+            # aggregate the data
             ba_forest = lc_type.sum(0,ba_day)
             ba_nonforest = lc_type.sum(1,ba_day)
             ba_other     = lc_type.sum(2,ba_day)
             
+            # compress the aggregated data into the 1D land array
             ba_forest_cmp = ca.compress(ba_forest)
             ba_nonforest_cmp = ca.compress(ba_nonforest)
             ba_other_cmp = ca.compress(ba_other)
