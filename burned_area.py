@@ -17,8 +17,10 @@ import pandas as pd
 import orchidee_indices as oi
 import accum_hist as ah
 import trend
+import collections
 import geo_ca as gca
 from osgeo import ogr
+
 
 
 # MOD12 landcover classification codes, broken down into 
@@ -733,3 +735,74 @@ def ba_multiyear_ratios(years, ba_template, ind_template, ind_names,
         indfiles[i_files].close()
 
     return ratios, histo
+
+# add a function which just aggregates the values along the time axis 
+# in a netCDF file, producing another, compatible netCDF file for downstream 
+# processing.
+def aggregate(infile, outfile, reduction, variables=None, 
+      agg_methods=rv.ReduceVar.REDUCE_MEAN, 
+      agg_dim='days') : 
+    """copy named variables and aggregate in the specified manner
+    
+    Copy infile to outfile, aggregating the named variables by the specified
+    "reduction factor" using agg_methods to produce the representative value
+    in "outfile"."""
+    in_ds = nc.Dataset(infile)
+    
+    # if the user did not specify which variables to reduce, 
+    # guess that they want everything except coordinate variables.
+    if variables is None: 
+        variables = list(in_ds.variables.keys())
+        for d in in_ds.dimensions.keys() : 
+            variables.remove(d)
+        if 'nav_lat' in variables : 
+            variables.remove('nav_lat')
+        if 'nav_lon' in variables :
+            variables.remove('nav_lon')
+            
+    # set up the "ReduceVar" aggregator
+    # assume that all variables have same dimensions.
+    v = in_ds.variables[variables[0]]
+    variable_shape = v.shape
+    variable_dims  = v.dims.keys()
+    i_agg = variable_dims.index(agg_dim)
+    if reduction == REDUCE_MONTHLY : 
+        aggregator = rv.reduce_monthly(variable_shape, i_agg) 
+    else : 
+        aggregator = rv.ReduceVar(variable_shape, i_agg, reduction)
+        
+    # figure out the shape of the output array 
+    output_shape = list(variable_shape)
+    output_shape[i_agg] = aggregator.reduced
+    
+    # create the output file
+    out_agg = agg.NetCDFTemplate(infile, outfile)
+    
+    # don't let the template copy the "aggregate" dimension to the new file!
+    out_agg.createDimension(agg_dim, aggregator.reduced)
+    
+    # copy the "navigation" variables
+    out_agg.copyVariable('nav_lat')
+    out_agg.copyVariable('nav_lon')
+    
+    # expand agg_methods if necessary
+    if not isinstance(agg_methods, collections.Sequence) : 
+        agg_methods = [agg_methods] * len(variables)
+
+    # prepare an index to write the output
+    out_slice = [ slice(None,None,None) ] * len(variable_shape)
+    
+    # loop over the variables        
+    for varname, agg_method in zip(variables, agg_methods) : 
+        v = in_ds.variables[varname]
+        fill_value = getattr(v, '_FillValue', None)
+        out_v = out_agg.create_variable(varname, v.dimensions, 
+                       v.dtype, fill=fill_value)
+
+        # loop over each reduced index        
+        for reduced_i in range(aggregator.reduced) : 
+            out_slice[i_agg] = reduced_i
+            out_v[out_slice] = aggregator.reduce(agg_method, reduced_i, v)
+            
+    out_agg.close()
+    in_ds.close()
