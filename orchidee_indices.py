@@ -257,19 +257,19 @@ def indices_year(y, forcing_template, out_template) :
     
     rh = ds.create_variable("rh", ("tstep","land"), np.float32)
     rh.long_name = "Relative Humidity"
-    rh.units = "percent"
+    rh.units = "fraction"
     
     rh_max = ds.create_variable("rh_max", ("days","land"), np.float32)
     rh_max.long_name = "Maximum RH" 
-    rh_max.units = "percent"
+    rh_max.units = "fraction"
     
     rh_min = ds.create_variable("rh_min", ("days","land"), np.float32)
     rh_min.long_name = "Minimum RH"
-    rh_min.units = "percent"
+    rh_min.units = "fraction"
     
     rh_afternoon = ds.create_variable("rh_afternoon", ('days', 'land'),np.float32)
     rh_afternoon.long_name = "RH in the afternoon"
-    rh_afternoon.units = "percent"
+    rh_afternoon.units = "fraction"
     
     t_min = ds.create_variable("t_min", ('days','land'), np.float32)
     t_min.long_name = "minimum temperature for the 24 hours preceeding burning period"
@@ -410,15 +410,15 @@ def indices_year(y, forcing_template, out_template) :
         eqmc_bar[i_day,:] = eqmc_bar_val
         
         # calculate fuel moisture content
-        fm1000[i_day,:] = fm1000_calc.compute(eqmc_bar_val, precip_val)
+        fm1000[i_day,:] = fm1000_calc.compute(eqmc_bar_val, precip_val).to(u.percent)
         fm100_today  = fm100_calc.compute(eqmc_bar_val, precip_val)
-        fm100[i_day,:] = fm100_today
+        fm100[i_day,:] = fm100_today.to(u.percent)
         fm1_today, fm10_today = fm.oneten_ofdm(
                 t_afternoon[i_day,:]*u.K, 
-                rh_afternoon[i_day,:]*u.percent,
+                rh_afternoon[i_day,:]*u.dimensionless_unscaled,
                 swdown.ref_val(), fm100_today)
-        fm10[i_day,:] = fm10_today
-        fm1[i_day,:] = fm1_today                
+        fm10[i_day,:] = fm10_today.to(u.percent)
+        fm1[i_day,:] = fm1_today.to(u.percent)              
                 
         
         # first time through, store the first day's data

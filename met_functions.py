@@ -189,6 +189,8 @@ def calc_vp_spec_humidity(q, p) :
     
     This is equation 2.19 (p. 17) of [1], solved for vapor pressure.
     
+    Re
+    
     [1] Rogers, R. R. A Short Course in Cloud Physics, Third Edition. 
         3 edition. Oxford ; New York: Pergamon, 1989.
     """
@@ -210,6 +212,8 @@ def calc_rh_spec_humidity(q, p, t) :
     """RH is needed for the various NFDRS fuel moistures.
     
     Implements equation 2.20 (p. 17) of [1].
+    
+    Returns a relative humidity as a fraction 0..1, not as a percent 0..100.
     
     [1] Rogers, R. R. A Short Course in Cloud Physics, Third Edition. 
         3 edition. Oxford ; New York: Pergamon, 1989.    
