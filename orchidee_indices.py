@@ -602,7 +602,7 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
         pct_index = pct_ds.variables[ind][:]
         
         out_v = out_templ.create_variable(ind,
-            in_index.dimensions, np.int8)
+            in_index.dimensions, np.int8, fill=-127)
         
                 
         #loop over time slice 
