@@ -524,6 +524,9 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
     return histos
     
 # a variant specialized to calculate percentile & univariate histograms
+# this puts the histogram of each index in a separate file.
+# ba_template, ind_template, and outfile should all be templates. The outfile
+# template should expect to receive an index name.
 def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names, 
                 outfile=None) :
     """computes multiyear histograms and stores in a netcdf file."""
@@ -559,11 +562,12 @@ def ba_univ_agg_multiyear_histogram(csv_files, years, agg_col, bins=range(0,102)
     """Univariate aggregation of dataset onto a histogram.
     
     Aggregates a single column of a series of datasets into a histogram. The 
-    filename pattern is specified in csv_files. The name of the column to 
-    aggregate is specified in agg_col. By default, 101 integer bins from 0 to 101
-    are specified (initial application is to support percentile binning). A
-    straight histogram is calculated by default, but naming a "weight column" 
-    allows for the computation of the weighted histogram.
+    filename pattern is specified in csv_files. The input files are expected to
+    be compatible with the CSV files produced by ba_compare_year(). The name of 
+    the column to aggregate is specified in agg_col. By default, 101 integer 
+    bins from 0 to 101 are specified (initial application is to support 
+    percentile binning). A straight histogram is calculated by default, but 
+    naming a "weight column" allows for the computation of the weighted histogram.
     
     All of the CSV files must have a header row containing the column names as 
     row zero, and must possess the column named in agg_col and (if specified) 
