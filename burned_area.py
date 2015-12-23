@@ -137,7 +137,11 @@ class BurnedAreaCounts (agg.NetCDFTemplate) :
                 print d
                 self.count[...,d] = zeros.array
         self.last_day = day
-        self.count[...,day] = cache.array
+
+        # Make sure we're not trying to add data past the end 
+        # of what was in the template netCDF file.
+        if day < self.days : 
+            self.count[...,day] = cache.array
         
 
 def ba_year(year, template, ncfile, shapefile)  :
@@ -768,10 +772,10 @@ def aggregate(infile, outfile, reduction, variables=None,
     # assume that all variables have same dimensions.
     v = in_ds.variables[variables[0]]
     variable_shape = v.shape
-    variable_dims  = v.dims.keys()
+    variable_dims  = v.dimensions
     i_agg = variable_dims.index(agg_dim)
     if reduction == REDUCE_MONTHLY : 
-        aggregator = rv.reduce_monthly(variable_shape, i_agg) 
+        aggregator = rv.monthly_aggregator(variable_shape, i_agg) 
     else : 
         aggregator = rv.ReduceVar(variable_shape, i_agg, reduction)
         

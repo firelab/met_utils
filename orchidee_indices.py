@@ -514,15 +514,20 @@ def percentile_indices(datasets, indices, outfile, years=None,
     if time_slice is not None : 
         num_time = (time_slice.stop - time_slice.start) + 1
         num_time *= num_years
+        out_templ._ncfile.start_day = time_slice.start
+        out_templ._ncfile.end_day   = time_slice.stop-1
     else :
-        num_time = d.dimensions[v.dimensions[ipos_time]]
-        num_time *= num_years
+        one_year = d.dimensions[v.dimensions[ipos_time]]
+        num_time = one_year * num_years
         time_slice = slice(None, None, None)
+        out_templ._ncfile.start_day = 0
+        out_templ._ncfile.end_day = one_year - 1
         
     # prep the output netcdf file
     out_templ.copyVariable('nav_lat')
     out_templ.copyVariable('nav_lon')
     out_templ.createDimension('percentile_cutpoints', 101)
+
     
     # loop over all the indices we're collecting data for
     for i_indices in range(num_ind) : 
@@ -587,7 +592,7 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
     # Pre-computing this makes the assumption that every year and every
     # index has the same time dimension.
     if time_slice is None : 
-        time_slice = slice(None, None, None)
+        time_slice = slice(0, len(ds.dimensions['days']), None)
 
     # loop over indices
     for ind in indices : 
