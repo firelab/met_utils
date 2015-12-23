@@ -363,7 +363,7 @@ def compute_ratio_histo(ratios, minmax, min_bins=5):
 
             
 
-def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) : 
+def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range=None) : 
     """calculates combined index-oriented and MODIS BA oriented histograms
     
     Computes and returns six histograms using the minmax description 
@@ -412,11 +412,14 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax) :
         
         # get number of samples along the time dimension
         timelim = len(indfile.dimensions['days'])-1
+        timerange = range(1,timelim)
+        if day_range is not None : 
+            timerange = day_range
         
         # get variable references for each index
         filevars = [ indfile.variables[iname] for iname in indices_names ] 
         
-        for i_day in range(1,timelim) : 
+        for i_day in timerange : 
             print i_day
             # grab one day's worth of data out of each index variable
             day_data = [ f[i_day,:] for f in filevars ]
@@ -473,11 +476,16 @@ def create_multiyear_histogram_file(outfile, ind_names, minmax) :
     return ofile
     
 
-def write_multiyear_histogram_file(outfile, histos, ind_names, minmax)  :
+def write_multiyear_histogram_file(outfile, histos, ind_names, minmax, day_range=None)  :
     """write a multiyear histogram netcdf file"""
 
     # create file, dimensions, variables
     ofile = create_multiyear_histogram_file(outfile, ind_names, minmax)
+
+    # record the doy range used to generate this data.
+    if day_range is not None : 
+        ofile.start_day = day_range.start
+        ofile.end_day   = day_range.stop-1
     
     # store variables
     names = [ 'occurrence', 'burned_occurrence', 'burned_forest', 'burned_not_forest',
@@ -532,7 +540,7 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
 # ba_template, ind_template, and outfile should all be templates. The outfile
 # template should expect to receive an index name.
 def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names, 
-                outfile=None) :
+                outfile=None, day_range=None) :
     """computes multiyear histograms and stores in a netcdf file."""
 
     # open netcdf files
@@ -548,11 +556,13 @@ def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names,
     for ind in ind_names : 
         ind_list = [ ind ]
         # compute histogram
-        histos = ba_multifile_histograms(bafiles, indfiles, ind_list, minmax)
+        histos = ba_multifile_histograms(bafiles, indfiles, ind_list, minmax,
+                     day_range)
     
         # write output
         if outfile is not None : 
-            write_multiyear_histogram_file(outfile%ind, histos, ind_list, minmax)
+            write_multiyear_histogram_file(outfile%ind, histos, ind_list, 
+                     minmax, day_range)
 
     # close netcdf files
     for i_files in range(len(years)) : 
