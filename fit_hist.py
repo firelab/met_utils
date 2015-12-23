@@ -1,5 +1,6 @@
 import accum_hist as ah
 import numpy as np
+from numpy.polynomial import Polynomial as P
 import statsmodels.api as sm
 import netCDF4 as nc
 import pandas as pd
@@ -182,11 +183,96 @@ class PowerNForm (FunctionalFitForm) :
         self.results.pvalues = fit_data[9:7:-1]
         self.results.conf = [ fit_data[12:], fit_data[10:12] ]
         
+class PolynomialForm (FunctionalFitForm) :
+    """Implements a fitter for a standard polynomial. 
+    Uses the numpy.polynomial package as a convenient method to store
+    the fitted parameters, but uses the statsmodels OLS code to actually
+    perform the fit. This is primarily for consistency with the other
+    flavors of "FunctionalFitForm", and for the convenient "results" object
+    which summarizes many handy things.
+    """ 
+    def __init__(self, data=None, centers=None, fit_params=None, deg=1) : 
+        self.deg = deg
+        self.make_column_names()
+        super(PolynomialForm, self).__init__(data, centers, fit_params)
         
+    def make_column_names(self) : 
+        self.fit_column_names = [ 'r_squared', 'deg' ] 
+        for p in range(self.deg+1) : 
+            term = 'a%d' % p 
+            self.fit_column_names.append( term ) 
+            self.fit_column_names.append( "%s_stderr" % term ) 
+            self.fit_column_names.append( "%s_pvalue" % term ) 
+            self.fit_column_names.append( "%s_low"   % term )
+            self.fit_column_names.append( "%s_high"    % term )
+            
+        
+    def fit(self, data, centers) : 
+        X = np.empty((len(data), self.deg+1))
+        X[:,0] = 1
+        for p in range(1,self.deg+1) : 
+            X[:,p] = np.power(centers, p)
+        self.results = sm.OLS(data,X).fit()
+        self.poly    = P(self.results.params)
+        
+        # copy the fit parameters to a dictionary where the 
+        # coefficients are labeled a0, a1...
+        self.params = {} 
+        for i in range(self.deg+1) : 
+            param_name = 'a%d' % i
+            self.params[param_name] = self.results.params[i]
+            
+    def evaluate(self, x) :
+        """Evaluate the forward function given the fit parameters""" 
+        return self.poly(x)
+        
+    def get_fitinfo(self) : 
+        """Serialize the fit data to statistical information on the fit parameters"""
+        retval = np.empty( (len(self.fit_column_names),), dtype=np.float64)
+        retval[0] = self.results.rsquared
+        retval[1] = self.deg
+        conf = self.results.conf_int()
+        for i in range(self.deg+1) :
+            i_basis = i*5+2
+            retval[i_basis] = self.results.params[i]
+            retval[i_basis+1] = self.results.bse[i]
+            retval[i_basis+2] = self.results.pvalues[i]
+            retval[i_basis+3:i_basis+5] = conf[i]
+        return retval 
+        
+    def load(self, fit_data)  :
+        """loads a fit from a numerical array.
+        
+        Array should have the same columns in the same order as produced by
+        get_fitinfo.
+        """
+        self.params = {} 
+        
+        self.results = Dummy()
+        self.results.rsquared = fit_data[0]
+        self.deg = fit_data[1]
+        self.results.params = [] 
+        self.results.bse = []
+        self.results.pvalues = []
+        self.results.conf = []
+        
+        for i in range(self.deg+1) : 
+            i_basis = i*5 + 2
+            term = 'a%d' % i 
+
+            self.params[term] = fit_data[i_basis]
+            
+            self.results.params.append(fit_data[i_basis])
+            self.results.bse.append(fit_data[i_basis+1])
+            self.results.pvalues.append(fit_data[i_basis+2])
+            self.results.conf.append(fit_data[i_basis+3:i_basis+5])
+        
+                
 
 forms = {} 
 forms['exp_tau'] = ExpTauForm
 forms['power_n'] = PowerNForm
+forms['polynomial'] = PolynomialForm
 
 
 class SparseHistoFit (object) : 
