@@ -423,7 +423,7 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
         filevars = [ indfile.variables[iname] for iname in indices_names ] 
         
         for i_day in timerange : 
-            print i_day
+            print i_year, i_day
             # grab one day's worth of data out of each index variable
             day_data = [ f[i_day,:] for f in filevars ]
             
@@ -440,29 +440,55 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
             ba_nonforest_cmp = ca.compress(ba_nonforest)
             ba_other_cmp = ca.compress(ba_other)
             
+            # construct an array of records for all land pixels in a single 
+            # day. Also construct a mask which can be used to pull data from
+            # the weights arrays
+            records = ma.zeros( (one_day, len(day_data)))
+            land_data = np.zeros( (one_day,), dtype=np.bool)
             for i_land in range(one_day) : 
-                record = ma.array([ data[i_land] for data in day_data] )
-                # if any of our coordinates are masked out, skip to next record
-                if np.any(record.mask) : 
-                    continue
-                occurrence.put_record(record)
-                burned_weight= 0
-                if ba_forest_cmp[i_land] > 0 : 
-                    burned_forest.put_record(record, weight=ba_forest_cmp[i_land])
-                    burned_forest_occ.put_record(record)
-                    burned_weight += ba_forest_cmp[i_land]
-                if ba_nonforest_cmp[i_land] > 0 : 
-                    burned_not_forest.put_record(record, weight=ba_nonforest_cmp[i_land])
-                    burned_not_forest_occ.put_record(record)
-                    burned_weight += ba_nonforest_cmp[i_land]
-                if ba_other_cmp[i_land] > 0 : 
-                    burned_other.put_record(record, weight=ba_other_cmp[i_land])
-                    burned_other_occ.put_record(record)
-                    burned_weight += ba_other_cmp[i_land]
-                if burned_weight > 0 : 
-                    burned_total.put_record(record, weight=burned_weight) 
-                    burned_occurrence.put_record(record)
-
+                # compute record for this pixel
+                cur_rec = ma.array([ data[i_land] for data in day_data] )
+                records[i_land, :] = cur_rec
+                
+                # figure out whether we skip this pixel indices are masked
+                land_data[i_land] = not np.any(cur_rec.mask)
+                            
+            # extract out just the records with data
+            records = records[land_data,:]    
+            
+            occurrence.put_batch(records)
+            burned_weight= np.zeros( (np.count_nonzero(land_data),))
+            
+            # for each of the histograms which count only burned area, 
+            # extract those records with nonzero burned area and 
+            # submit them as a batch to the relevant histogram.
+            ba = ba_forest_cmp[land_data]
+            idx = np.where( ba != 0)
+            rec = records[idx,:]
+            burned_forest.put_batch(rec, weights=ba[idx])
+            burned_forest_occ.put_batch(rec)
+            burned_weight += ba
+            
+            ba = ba_nonforest_cmp[land_data]
+            idx = np.where( ba != 0)
+            rec = records[idx,:]
+            burned_not_forest.put_batch(rec, weights=ba[idx])
+            burned_not_forest_occ.put_batch(rec)
+            burned_weight += ba
+            
+            ba = ba_other_cmp[land_data]
+            idx = np.where( ba != 0)
+            rec = records[idx,:]
+            burned_other.put_batch(rec, weights=ba[idx])
+            burned_other_occ.put_batch(rec)
+            burned_weight += ba
+            
+            ba = burned_weight
+            idx = np.where( ba != 0)
+            rec = records[idx,:]
+            burned_total.put_batch(rec, weights=ba[idx])
+            burned_occurrence.put_batch(rec)
+            
     return (occurrence, burned_occurrence, 
              burned_forest, burned_forest_occ, 
              burned_not_forest, burned_not_forest_occ,
