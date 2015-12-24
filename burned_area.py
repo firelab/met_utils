@@ -366,8 +366,8 @@ def compute_ratio_histo(ratios, minmax, min_bins=5):
 def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range=None) : 
     """calculates combined index-oriented and MODIS BA oriented histograms
     
-    Computes and returns six histograms using the minmax description 
-    provided. Two histograms involve only the indices, which are assumed 
+    Computes and returns nine histograms using the minmax description 
+    provided. Five histograms involve only the indices, which are assumed 
     to be computed at a coarse resolution such as 0.5 deg by 0.5 deg. 
     These histograms are computed with a uniform weight of 1 for every 
     occurrence. One represents all observed combinations of indices,
@@ -390,6 +390,9 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
     # these two count 0.5 x 0.5 degree cells
     occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
     burned_occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
+    burned_forest_occ = ah.AccumulatingHistogramdd(minmax=minmax)
+    burned_not_forest_occ = ah.AccumulatingHistogramdd(minmax=minmax)
+    burned_other_occ      = ah.AccumulatingHistogramdd(minmax=minmax)
 
     # these four count individual modis detections
     burned_forest = ah.AccumulatingHistogramdd(minmax=minmax) 
@@ -446,19 +449,24 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
                 burned_weight= 0
                 if ba_forest_cmp[i_land] > 0 : 
                     burned_forest.put_record(record, weight=ba_forest_cmp[i_land])
+                    burned_forest_occ.put_record(record)
                     burned_weight += ba_forest_cmp[i_land]
                 if ba_nonforest_cmp[i_land] > 0 : 
                     burned_not_forest.put_record(record, weight=ba_nonforest_cmp[i_land])
+                    burned_not_forest_occ.put_record(record)
                     burned_weight += ba_nonforest_cmp[i_land]
                 if ba_other_cmp[i_land] > 0 : 
                     burned_other.put_record(record, weight=ba_other_cmp[i_land])
+                    burned_other_occ.put_record(record)
                     burned_weight += ba_other_cmp[i_land]
                 if burned_weight > 0 : 
                     burned_total.put_record(record, weight=burned_weight) 
                     burned_occurrence.put_record(record)
 
-    return (occurrence, burned_occurrence, burned_forest, burned_not_forest, 
-            burned_other, burned_total)
+    return (occurrence, burned_occurrence, 
+             burned_forest, burned_forest_occ, 
+             burned_not_forest, burned_not_forest_occ,
+             burned_other, burned_other_occ, burned_total)
 
 def create_multiyear_histogram_file(outfile, ind_names, minmax) : 
     """creates a histogram file with dimensions and coordinate variables"""
@@ -488,8 +496,10 @@ def write_multiyear_histogram_file(outfile, histos, ind_names, minmax, day_range
         ofile.end_day   = day_range.stop-1
     
     # store variables
-    names = [ 'occurrence', 'burned_occurrence', 'burned_forest', 'burned_not_forest',
-                  'burned_other', 'burned_total'] 
+    names = [ 'occurrence', 'burned_occurrence', 
+              'burned_forest', 'burned_forest_occ', 
+              'burned_not_forest', 'burned_not_forest_occ',
+              'burned_other', 'burned_other_occ', 'burned_total'] 
     types = [ np.int32, np.int32, np.float64, np.float64, np.float64, np.float64]
     for name, hist, t in zip(names, histos, types) : 
         v = ofile.createVariable(name, t, ind_names) 
