@@ -417,7 +417,7 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
         timelim = len(indfile.dimensions['days'])-1
         timerange = range(1,timelim)
         if day_range is not None : 
-            timerange = day_range
+            timerange = range(day_range.start, day_range.stop)
         
         # get variable references for each index
         filevars = [ indfile.variables[iname] for iname in indices_names ] 
