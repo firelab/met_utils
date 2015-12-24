@@ -445,14 +445,15 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
             # the weights arrays
             records = ma.zeros( (one_day, len(day_data)))
             land_data = np.zeros( (one_day,), dtype=np.bool)
-            for i_land in range(one_day) : 
-                # compute record for this pixel
-                cur_rec = ma.array([ data[i_land] for data in day_data] )
-                records[i_land, :] = cur_rec
+            
+            # compile all the records for a single day (column-wise)
+            for i_data in range(len(day_data)):
+                records[:,i_data] = day_data[i]
                 
-                # figure out whether we skip this pixel indices are masked
-                land_data[i_land] = not np.any(cur_rec.mask)
-                            
+            # filter out pixels where any of the indices are missing. (row-wise)    
+            for i_land in range(one_day) : 
+                land_data[i_land] = not np.any(records[i_land,:].mask)
+                
             # extract out just the records with data
             records = records[land_data,:]    
             
