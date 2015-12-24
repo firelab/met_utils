@@ -463,32 +463,36 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
             # extract those records with nonzero burned area and 
             # submit them as a batch to the relevant histogram.
             ba = ba_forest_cmp[land_data]
-            idx = np.where( ba != 0)
-            rec = records[idx,:]
-            burned_forest.put_batch(rec, weights=ba[idx])
-            burned_forest_occ.put_batch(rec)
-            burned_weight += ba
+            if np.count_nonzero(ba) > 0 : 
+                idx = np.where( ba != 0)
+                rec = records[idx,:].squeeze(axis=(0,))
+                burned_forest.put_batch(rec, weights=ba[idx])
+                burned_forest_occ.put_batch(rec)
+                burned_weight += ba
             
             ba = ba_nonforest_cmp[land_data]
-            idx = np.where( ba != 0)
-            rec = records[idx,:]
-            burned_not_forest.put_batch(rec, weights=ba[idx])
-            burned_not_forest_occ.put_batch(rec)
-            burned_weight += ba
+            if np.count_nonzero(ba) > 0 : 
+                idx = np.where( ba != 0)
+                rec = records[idx,:].squeeze(axis=(0,))
+                burned_not_forest.put_batch(rec, weights=ba[idx])
+                burned_not_forest_occ.put_batch(rec)
+                burned_weight += ba
             
             ba = ba_other_cmp[land_data]
-            idx = np.where( ba != 0)
-            rec = records[idx,:]
-            burned_other.put_batch(rec, weights=ba[idx])
-            burned_other_occ.put_batch(rec)
-            burned_weight += ba
+            if np.count_nonzero(ba) > 0 : 
+                idx = np.where( ba != 0)
+                rec = records[idx,:].squeeze(axis=(0,))
+                burned_other.put_batch(rec, weights=ba[idx])
+                burned_other_occ.put_batch(rec)
+                burned_weight += ba
             
             ba = burned_weight
-            idx = np.where( ba != 0)
-            rec = records[idx,:]
-            burned_total.put_batch(rec, weights=ba[idx])
-            burned_occurrence.put_batch(rec)
-            
+            if np.count_nonzero(ba) > 0 : 
+                idx = np.where( ba != 0)
+                rec = records[idx,:].squeeze(axis=(0,))
+                burned_total.put_batch(rec, weights=ba[idx])
+                burned_occurrence.put_batch(rec)
+                
     return (occurrence, burned_occurrence, 
              burned_forest, burned_forest_occ, 
              burned_not_forest, burned_not_forest_occ,
