@@ -448,7 +448,7 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
             
             # compile all the records for a single day (column-wise)
             for i_data in range(len(day_data)):
-                records[:,i_data] = day_data[i]
+                records[:,i_data] = day_data[i_data]
                 
             # filter out pixels where any of the indices are missing. (row-wise)    
             for i_land in range(one_day) : 
