@@ -35,9 +35,11 @@ class AccumulatingHistogramdd (object)  :
         """
         self.count = 0 
         self.total = 0
+        self._bins = None
         
         if minmax is not None : 
             self._init_minmax(minmax, dtype)
+            self._minmax = minmax
 
                     
             
@@ -47,6 +49,17 @@ class AccumulatingHistogramdd (object)  :
         for cur_minmax in minmax : 
             shape.append(cur_minmax[2])
         self.H = np.zeros( shape, dtype=dtype) 
+    
+    def get_bins(self) : 
+        """generates (if necessary) and returns the multidimensional bin definition"""
+        if self._bins == None : 
+            edges = [] 
+            for ax_min, ax_max, ax_bins in self._minmax  :
+                edges.append(np.linspace(ax_min, ax_max, num=ax_bins+1, endpoint=True))
+            self._bins = np.array(edges)
+            
+        return self._bins
+
                 
     def put_record(self, record, weight=1) : 
         """adds a single record to the histogram with the specified weight."""
@@ -54,11 +67,27 @@ class AccumulatingHistogramdd (object)  :
         self.count += 1
         self.total += weight
         
-    def put_all_bins(self, H) :
+    def put_batch(self, records, weights=None) : 
+        """Accumulates a batch of records onto the current histogram."""
+        
+        # compute histogram for this batch
+        bins = self.get_bins() 
+        H, edges = np.histogramdd(records, bins=bins, weights=weights)
+        
+        # accumulate this batch onto the total
+        self.put_all_bins(H, records.shape[0])
+        
+    def put_all_bins(self, H, count=None) :
         """Add the given bins to the existing ones."""
         self.H += H
-        self.count += np.count_nonzero(H)
-        self.total += np.sum(H)
+        histo_total = np.sum(H)
+        
+        if count is None : 
+            self.count += histo_total
+        else :             
+            self.count += count
+            
+        self.total += histo_total
         
         
         

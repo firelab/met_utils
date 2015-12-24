@@ -37,18 +37,65 @@ class TestAccumulatingHistogram (unittest.TestCase) :
             hist.put_record(self.x[i,:], weight=(i+1)*100)
             t += (i+1)*100
             
+    def _histodd_bins(self): 
+        edges = [] 
+        for ax_min, ax_max, ax_bins in self.bins  :
+            edges.append(np.linspace(ax_min, ax_max, num=ax_bins+1, endpoint=True))
+        return np.array(edges)
+
+        
     def test_bincounts(self) : 
         """do we accumulate into same bins as histogramdd?"""
         hist = ah.AccumulatingHistogramdd(minmax=self.bins)
         for i in range(self.x.shape[0]) : 
             hist.put_record(self.x[i,:])
-        
-            
-        edges = [] 
-        for ax_min, ax_max, ax_bins in self.bins  :
-            edges.append(np.linspace(ax_min, ax_max, num=ax_bins+1, endpoint=True))
+         
+        edges = self._histodd_bins()    
         counts,e = np.histogramdd(self.x, bins=edges)
         self.assertTrue(np.all(counts == hist.H))
+
+    def test_bins(self) : 
+        """is the object's bin structure compatible with histogramdd?"""
+        hist = ah.AccumulatingHistogramdd(minmax=self.bins)
+        edges = self._histodd_bins() 
+        obj_edges = hist.get_bins() 
+        for i in range(len(edges)) :
+            self.assertTrue(np.all(edges[i]==obj_edges[i]))
+        
+    def test_batch_add_counts(self) : 
+        """batch adding and adding one at a time should produce same results"""
+        hist_sgl = ah.AccumulatingHistogramdd(minmax=self.bins)
+        hist_batch = ah.AccumulatingHistogramdd(minmax=self.bins)
+        
+        
+        hist_batch.put_batch(self.x)
+        
+        for i in range(self.x.shape[0]) : 
+            hist_sgl.put_record(self.x[i,:])
+            
+        self.assertTrue(np.all(hist_sgl.H == hist_batch.H))
+        self.assertTrue(hist_batch.total == hist_sgl.total)
+        self.assertTrue(hist_batch.count == hist_sgl.count)
+        
+    def test_batch_add_weights(self) : 
+        """batch adding with weights and adding weighted values one at a time
+        should produce the same results."""
+        
+        hist_sgl = ah.AccumulatingHistogramdd(minmax=self.bins)
+        hist_batch = ah.AccumulatingHistogramdd(minmax=self.bins)
+
+        weights = [ 100*(i+1) for i in range(self.x.shape[0]) ]
+        
+        hist_batch.put_batch(self.x, weights)
+        
+        for i in range(self.x.shape[0]) : 
+            hist_sgl.put_record(self.x[i,:], weight=weights[i])
+            
+        self.assertTrue(np.all(hist_batch.H == hist_sgl.H))
+        self.assertTrue(hist_batch.total == hist_sgl.total)
+        self.assertTrue(hist_batch.count == hist_sgl.count)
+            
+        
 
         
 class TestSparseKeyedHistogram ( unittest.TestCase ) :
