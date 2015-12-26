@@ -387,18 +387,18 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
     """
     one_day = len(ind_files[0].dimensions['land'])
 
-    # these two count 0.5 x 0.5 degree cells
-    occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
-    burned_occurrence = ah.AccumulatingHistogramdd(minmax=minmax)
-    burned_forest_occ = ah.AccumulatingHistogramdd(minmax=minmax)
-    burned_not_forest_occ = ah.AccumulatingHistogramdd(minmax=minmax)
-    burned_other_occ      = ah.AccumulatingHistogramdd(minmax=minmax)
+    # these count 0.5 x 0.5 degree cells
+    occurrence = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int32)
+    burned_occurrence = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int32)
+    burned_forest_occ = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int32)
+    burned_not_forest_occ = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int32)
+    burned_other_occ      = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int32)
 
     # these four count individual modis detections
-    burned_forest = ah.AccumulatingHistogramdd(minmax=minmax) 
-    burned_not_forest = ah.AccumulatingHistogramdd(minmax=minmax)
-    burned_other = ah.AccumulatingHistogramdd(minmax=minmax)
-    burned_total = ah.AccumulatingHistogramdd(minmax=minmax)
+    burned_forest = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int64) 
+    burned_not_forest = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int64)
+    burned_other = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int64)
+    burned_total = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int64)
 
     ca = trend.CompressedAxes(ind_files[0], 'land') 
 
@@ -531,7 +531,12 @@ def write_multiyear_histogram_file(outfile, histos, ind_names, minmax, day_range
               'burned_forest', 'burned_forest_occ', 
               'burned_not_forest', 'burned_not_forest_occ',
               'burned_other', 'burned_other_occ', 'burned_total'] 
-    types = [ np.int32, np.int32, np.float64, np.float64, np.float64, np.float64]
+    # things which count 0.5 deg cells are int32, things which count 
+    # MODIS cells are int64
+    types = [ np.int32, np.int32,
+              np.int64, np.int32,
+              np.int64, np.int32,
+              np.int64, np.int32, np.int64 ]
     for name, hist, t in zip(names, histos, types) : 
         v = ofile.createVariable(name, t, ind_names) 
         v[:] = hist.H 
