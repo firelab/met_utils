@@ -361,10 +361,36 @@ def compute_ratio_histo(ratios, minmax, min_bins=5):
 
     return ratio_histogram
 
+def calc_geog_mask(ca, bafile, geog_box) : 
+    """calculates a 1d mask based on a tuple representing a bounding box
+    expressed in lat/lon
+    
+    The lookup process to convert geographic lat/lon to 2d index values
+    requires that the provided value actually be in the array. No in-betweens.
+    """
+    lats = q.CoordinateVariableSamplingFunction(bafile.variables['nav_lat'][:,0])
+    lons = q.CoordinateVariableSamplingFunction(bafile.variables['nav_lon'][0,:])
+    
+    mask_2d = np.ones( bafile.variables['nav_lat'], dtype=np.bool)
+    
+    lon_min = lons.get_index(geog_box[0])
+    lon_max = lons.get_index(geog_box[1])
+    lat_min = lats.get_index(geog_box[2])
+    lat_max = lats.get_index(geog_box[3])
+    
+    mask_2d[lat_min:lat_max,lon_min:lon_max] = False
+    
+    return ca.compress(mask_2d)
+    
             
 
-def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range=None) : 
+def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, 
+                             day_range=None, geog_box=None) : 
     """calculates combined index-oriented and MODIS BA oriented histograms
+    
+    The user can specify a day of year range and geography box to limit the 
+    data. Geography box is specified as a tuple: (lon_min, lon_max, lat_min,
+    lat_max). 
     
     Computes and returns nine histograms using the minmax description 
     provided. Five histograms involve only the indices, which are assumed 
@@ -401,6 +427,11 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
     burned_total = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int64)
 
     ca = trend.CompressedAxes(ind_files[0], 'land') 
+    
+    if geog_box is not None : 
+        geog_mask = calc_geog_mask(ca, ba_files[0], geog_box)
+    else : 
+        geog_mask = np.zeros( (one_day,), dtype=np.bool)
 
     for i_year in range(len(ind_files)) : 
         # fetch the correct file handles for this year
@@ -444,15 +475,15 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, day_range
             # day. Also construct a mask which can be used to pull data from
             # the weights arrays
             records = ma.zeros( (one_day, len(day_data)))
-            land_data = np.zeros( (one_day,), dtype=np.bool)
             
             # compile all the records for a single day (column-wise)
             for i_data in range(len(day_data)):
                 records[:,i_data] = day_data[i_data]
                 
             # filter out pixels where any of the indices are missing. (row-wise)    
-            for i_land in range(one_day) : 
-                land_data[i_land] = not np.any(records[i_land,:].mask)
+            # Merge in the geographic filter.
+            land_data = np.any(records[:].mask, axis=1)
+            land_data = np.logical_not(land_data | geog_mask)
                 
             # extract out just the records with data
             records = records[land_data,:]    
