@@ -368,10 +368,10 @@ def calc_geog_mask(ca, bafile, geog_box) :
     The lookup process to convert geographic lat/lon to 2d index values
     requires that the provided value actually be in the array. No in-betweens.
     """
-    lats = q.CoordinateVariableSamplingFunction(bafile.variables['nav_lat'][:,0])
-    lons = q.CoordinateVariableSamplingFunction(bafile.variables['nav_lon'][0,:])
+    lats = q.CoordinateVariableSamplingFunction(bafile.variables['nav_lat'][:,0].tolist())
+    lons = q.CoordinateVariableSamplingFunction(bafile.variables['nav_lon'][0,:].tolist())
     
-    mask_2d = np.ones( bafile.variables['nav_lat'], dtype=np.bool)
+    mask_2d = np.ones( bafile.variables['nav_lat'].shape, dtype=np.bool)
     
     lon_min = lons.get_index(geog_box[0])
     lon_max = lons.get_index(geog_box[1])
@@ -482,7 +482,10 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax,
                 
             # filter out pixels where any of the indices are missing. (row-wise)    
             # Merge in the geographic filter.
-            land_data = np.any(records[:].mask, axis=1)
+            if len(day_data) > 1 : 
+                land_data = np.any(records.mask, axis=1)
+            else : 
+                land_data = records.mask.squeeze()
             land_data = np.logical_not(land_data | geog_mask)
                 
             # extract out just the records with data
@@ -546,7 +549,8 @@ def create_multiyear_histogram_file(outfile, ind_names, minmax) :
     return ofile
     
 
-def write_multiyear_histogram_file(outfile, histos, ind_names, minmax, day_range=None)  :
+def write_multiyear_histogram_file(outfile, histos, ind_names, minmax, 
+        day_range=None, geog_box=None)  :
     """write a multiyear histogram netcdf file"""
 
     # create file, dimensions, variables
@@ -556,6 +560,13 @@ def write_multiyear_histogram_file(outfile, histos, ind_names, minmax, day_range
     if day_range is not None : 
         ofile.start_day = day_range.start
         ofile.end_day   = day_range.stop-1
+
+    # record the geographic bounding box used to generate this data
+    if geog_box is not None : 
+        ofile.min_lon = geog_box[0]
+        ofile.max_lon = geog_box[1]
+        ofile.min_lat = geog_box[2]
+        ofile.max_lat = geog_box[3]
     
     # store variables
     names = [ 'occurrence', 'burned_occurrence', 
@@ -617,7 +628,7 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
 # ba_template, ind_template, and outfile should all be templates. The outfile
 # template should expect to receive an index name.
 def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names, 
-                outfile=None, day_range=None) :
+                outfile=None, day_range=None, geog_box=None) :
     """computes multiyear histograms and stores in a netcdf file."""
 
     # open netcdf files
@@ -634,12 +645,12 @@ def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names,
         ind_list = [ ind ]
         # compute histogram
         histos = ba_multifile_histograms(bafiles, indfiles, ind_list, minmax,
-                     day_range)
+                     day_range, geog_box)
     
         # write output
         if outfile is not None : 
             write_multiyear_histogram_file(outfile%ind, histos, ind_list, 
-                     minmax, day_range)
+                     minmax, day_range, geog_box)
 
     # close netcdf files
     for i_files in range(len(years)) : 
