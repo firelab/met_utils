@@ -647,6 +647,32 @@ def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names,
         indfiles[i_files].close()
 
     return histos
+    
+def ba_multiyear_add_ratios(filename) : 
+    """adds ratios to a file created with write_multiyear_histogram_file() 
+    
+    The ratios are computed element-wise with the "occurrence" variable in
+    the denominator."""
+    names = [ 'burned_occurrence', 
+              'burned_forest', 'burned_forest_occ', 
+              'burned_not_forest', 'burned_not_forest_occ',
+              'burned_other', 'burned_other_occ', 'burned_total'] 
+              
+    ncfile = nc.Dataset(filename, mode='r+')
+    occ = np.array(ncfile.variables['occurrence'][:], dtype=np.float)
+    occdims = ncfile.variables['occurrence'].dimensions
+    
+    for v in names : 
+        ratio = ncfile.variables[v][:] / occ
+        newname = 'ratio_{:s}'.format(v)
+        newvar = ncfile.createVariable(newname, ratio.dtype, 
+                                    occdims, fill_value=-1)
+        newvar[:] = ratio
+        
+    ncfile.close()
+        
+        
+
 
 def ba_univ_agg_multiyear_histogram(csv_files, years, agg_col, bins=range(0,102), 
          weight_col=None) : 
