@@ -618,3 +618,73 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
     ds.close()
     out_templ.close()
     pct_ds.close()
+
+class IndexManager (object) : 
+    """Encapasulates day-by-day access to a set of files of indices.
+    
+    The primary function of this object is to compile vectors of 
+    indices from the parallel arrays found in the file of indices. Each
+    vector represents a single cell, and an entire day is processed at once.
+    
+    An optional geographic mask is accepted.
+    """
+    def __init__(self, indices_names, geog_mask=None) :
+        """Initializes a manager object.
+        
+         ind_series is a time series of files of indices.
+         indices_names is a set of indices to read from the file.
+         geog_mask is a 1D array of booleans where true values indicate that
+          the cell is within the ROI.
+        """ 
+        self.indices_names   = indices_names
+        self.geog_mask  = geog_mask
+        
+    def set_mask(self, geog_mask) : 
+        self.geog_mask = geog_mask
+        
+    
+    def get_indices_vector(self, ind_ds, i_day) :
+        """compiles a vector of indices for each grid cell on the specified day.
+        
+        This is used when the specific dataset and day index are known.
+        The 1D vector of valid land pixels is returned, along with a 2D
+        (land, index) array of index values. To obtain only those index
+        values over valid land pixels, you must select by the returned
+        1D vector."""
+        
+        one_day = len(ind_ds.dimensions['land'])
+        # get variable references for each index
+        filevars = [ ind_ds.variables[iname] 
+                            for iname in self.indices_names ] 
+
+        # assemble the desired indices into parallel arrays
+        #day_data = [ f[i_day,:] for f in filevars ]
+
+        # construct an array of records for all land pixels in a single 
+        # day. Also construct a mask which can be used to pull data from
+        # the weights arrays
+        records = ma.zeros( (one_day, len(filevars)))
+        
+        # compile all the records for a single day (column-wise)
+        for i_data in range(len(filevars)):
+            records[:,i_data] = filevars[i_data][i_day,:]
+            
+        # filter out pixels where any of the indices are missing. (row-wise)    
+        # Merge in the geographic filter.
+        if len(filevars) > 1 : 
+            land_data = np.any(records.mask, axis=1)
+        else : 
+            land_data = records.mask.squeeze()
+        
+        # Merge in the geog_mask, if specified    
+        if self.geog_mask is None :
+            land_data = np.logical_not(land_data)
+        else : 
+            land_data = np.logical_not(land_data | self.geog_mask)
+                        
+        return (land_data, records)
+        
+    def get_day(self, ind_series, day) : 
+        """Looks up the file and position within file given the time-series and date"""
+        ind_ds, i_day = ind_series.get_location(day)
+        return self.get_indices_vector(ind_ds, i_day)
