@@ -111,7 +111,8 @@ def create_cast_file(filename, periods, bin_centers,
     
     lc = ofile.createVariable('landcover', np.char, ('landcover','lc_name_len'))
     for i in range(len(lc_type_names)) :
-        lc[i,:] = lc_type_names[i]
+        n = lc_type_names[i]
+        lc[i,:len(n)] = n
         
     period = ofile.createVariable('period', np.int, ('period',))
     epoch = periods.first()
