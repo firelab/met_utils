@@ -240,7 +240,7 @@ class IntegerInterval (object) :
     
     Class can be used to repeatedly iterate over the same window"""
     def __init__(self, *args) : 
-        if len(args == 1) : 
+        if len(args) == 1 : 
             self.stop = args[0]
             self.start = 0
             self.step  = 1
@@ -286,6 +286,9 @@ class AnnualInterval(object) :
         
     def length(self) : 
         return (self.stop - self.start)/self.step
+        
+    def first(self) : 
+        return dt.date(self.start, 1,1)
         
     def interval(self)  :
         for year in range(self.start, self.stop, self.step) : 
