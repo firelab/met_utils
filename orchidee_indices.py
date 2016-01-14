@@ -680,7 +680,7 @@ class IndexManager (object) :
         if self.geog_mask is None :
             land_data = np.logical_not(land_data)
         else : 
-            land_data = np.logical_not(land_data | self.geog_mask)
+            land_data = self.geog_mask & np.logical_not(land_data)
                         
         return (land_data, records)
         

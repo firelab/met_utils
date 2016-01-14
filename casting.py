@@ -22,10 +22,15 @@ def get_ratios(pcthisto) :
     burn_total = pctfile.variables['ratio_burned_total'][:]
     
     bin_dim = pctfile.variables['ratio_burned_forest'].dimensions[0]
-    bin_centers = pctfile.variables[bin_dim][:]
+    bin_left = pctfile.variables[bin_dim][:]
     binsize = pctfile.variables[bin_dim].binsize
+    n_bins = bin_left.shape[0]
     
-    bin_edges = [i*binsize for i in range(burn_forest.shape[0]+1)]
+    bin_edges = np.empty( (n_bins+1,), dtype=bin_left.dtype)
+    bin_edges[:-1] = bin_left
+    bin_edges[-1] = bin_left[-1] + binsize
+    
+    bin_centers = bin_left + (binsize/2)
     
     pctfile.close()
     
@@ -46,6 +51,7 @@ def calc_mask(series, periods, pctfile, land_dim='land') :
     min_lat = pct_ds.min_lat
     max_lon = pct_ds.max_lon
     min_lon = pct_ds.min_lon
+    
     pct_ds.close()
     
     ds = series.get_dataset(periods.first())
