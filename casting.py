@@ -3,6 +3,7 @@
 import netCDF4 as nc
 import trend
 import numpy as np
+import time_series as ts
 import orchidee_indices as oi
 import accum_hist as ah
 from collections import namedtuple
@@ -197,4 +198,32 @@ def cast(index_series, indices, cast_periods,
         i_period += 1
         
     ofile.close()  
+    
+def do_cast(index_pattern, indices, years, pcthisto, outfile, 
+            time_dim='days', time_slice=None) :
+    """Creates the series objects and iterators, then performs the fore-or-hind cast.
+    
+     index_pattern : filename pattern which should expect to receive a year
+     indices       : a list of indices to process in this run
+     years         : a slice object with the start and stop years
+     pcthisto      : percentile histogram file containing ratios of BA to occurrence
+     outfile       : name of output file
+     time_dim      : name of the time dimension in the index files
+     time_slice    : day-of-year range to include in processing 
+     """
+    
+    # how to translate a date to the correct file to open.        
+    idx_series = ts.TimeSeries(index_pattern, time_dim) 
+    
+    # the years to loop over
+    cast_periods = ts.AnnualInterval(years.start, years.stop)
+    
+    # subset of days within year to loop over
+    if time_slice is None : 
+        model_periods = ts.IntegerInterval(0,365)
+    else : 
+        model_periods = ts.IntegerInterval(time_slice.start, time_slice.stop)
+        
+    cast(idx_series, indices, cast_periods, model_periods, pcthisto, outfile)
+    
     
