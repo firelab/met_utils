@@ -173,7 +173,7 @@ class TimeSeries (object) :
         fname = self.get_file_name(datetime)
         
         if self.file_cache.filename_in(fname) : 
-            retval = self.file_cache.get_by_filename(fname)
+            retval = self.file_cache.get_by_filename(fname).dataset
         else : 
             retval = nc.Dataset(fname, **kwargs)
             self.file_cache.add(fname, datetime, retval)

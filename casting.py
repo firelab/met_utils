@@ -39,7 +39,7 @@ def get_ratios(pcthisto) :
 def calc_mask(series, periods, pctfile, land_dim='land') :
     # read the bounding box if recorded in the file. 
     pct_ds = nc.Dataset(pctfile)
-    if not pct_ds.hasattr('max_lat') :
+    if not ('max_lat' in pct_ds.ncattrs()) :
         pct_ds.close()
         return None
     max_lat = pct_ds.max_lat
@@ -48,7 +48,7 @@ def calc_mask(series, periods, pctfile, land_dim='land') :
     min_lon = pct_ds.min_lon
     pct_ds.close()
     
-    ds = series.get_dataset(periods.start)
+    ds = series.get_dataset(periods.first())
     ca = trend.CompressedAxes(ds, land_dim)
     
     nav_lat = ds.variables['nav_lat'][:]
@@ -71,7 +71,7 @@ def calc_occurrence(p_date, index_series, index_manager,
     # fetch the handle to the correct index file
     ds = index_series.get_dataset(p_date)
     
-    occ = ah.AccumulatingHistogram([ (np.min(bin_edges),
+    occ = ah.AccumulatingHistogramdd([ (np.min(bin_edges),
                                               np.max(bin_edges),
                                               len(bin_edges)-1) ])
 
@@ -100,7 +100,7 @@ def create_cast_file(filename, periods, bin_centers,
         ofile.max_lat = geog_box[3]
 
     # create the dimensions
-    ofile.createDimension('period', periods.length)
+    ofile.createDimension('period', periods.length())
     ofile.createDimension('landcover', len(lc_type_names))
     ofile.createDimension('percentile', len(bin_centers))
     ofile.createDimension('lc_name_len', 20)
@@ -110,7 +110,7 @@ def create_cast_file(filename, periods, bin_centers,
     pct[:] = bin_centers
     pct.binsize = bin_centers[1] - bin_centers[0]
     
-    lc = ofile.createVariable('landcover', np.char, ('landcover','lc_name_len'))
+    lc = ofile.createVariable('landcover', 'c', ('landcover','lc_name_len'))
     for i in range(len(lc_type_names)) :
         n = lc_type_names[i]
         lc[i,:len(n)] = n
@@ -118,7 +118,7 @@ def create_cast_file(filename, periods, bin_centers,
     period = ofile.createVariable('period', np.int, ('period',))
     epoch = periods.first()
     period.units = 'days since {:%Y-%m-%d}'.format(epoch)
-    period[:] = [ (p-epoch).days for p in periods ] 
+    period[:] = [ (p-epoch).days for p in periods.interval() ] 
     
     # create variable to store annual occurrence histograms
     occ = ofile.createVariable('occurrence', np.int, ('period','percentile'))
@@ -168,7 +168,7 @@ def cast(index_series, indices, cast_periods,
     """
     
     known_ratios = get_ratios(pcthisto)
-    mask, geog_box = calc_mask(index_series, cast_periods)
+    mask, geog_box = calc_mask(index_series, cast_periods, pcthisto)
     manager = oi.IndexManager(indices, mask)
     ofile = create_cast_file(outfile, cast_periods, known_ratios.bin_centers,
                 geog_box=geog_box, time_slice=model_periods)
@@ -189,7 +189,7 @@ def cast(index_series, indices, cast_periods,
                                 
         for i_lc in range(len(lc_type_names)) : 
             lc = lc_type_names[i_lc]
-            ba_hist = known_ratios.getattr(lc) * occurrence.H
+            ba_hist = getattr(known_ratios,lc) * occurrence.H
             ba = ba_hist.sum()
             
             out_ba_hist[i_period,i_lc,:] = ba_hist
