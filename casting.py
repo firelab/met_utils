@@ -96,7 +96,7 @@ def create_cast_file(filename, periods, bin_centers,
     
     if time_slice is not None : 
         ofile.start_day = time_slice.start
-        ofile.end_day   = time_slice.stop
+        ofile.end_day   = time_slice.stop - 1
         
     # record the geographic bounding box used to generate this data
     if geog_box is not None : 
