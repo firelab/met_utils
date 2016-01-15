@@ -567,7 +567,11 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
     
     The indices which are converted to percentile values are present as variables
     in the pctfile. pctfile contains the cutpoints for each variable's percentile
-    bins.
+    bins. The output is an integer array which is effectively the result of 
+    the "ceil" function. Valid percentile values are 1 to 100, inclusive.
+    Index values between the minimum and the 1st percentile cutpoint (inclusive) 
+    get value 1, between the 1st (exclusive) and 2nd (inclusive) cutpoint get value
+    2, and so on.
     
     Input file is specified by providing a filename as a dataset.
     
@@ -614,11 +618,22 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
             print day
             if ipos_land == 0 : 
                 in_day = in_index[:,day]
-                out_v[:, day] = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)] 
+                
+                # searchsorted with side = 'right' is essentially the 
+                # ceil function.
+                ceil_pct = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)] 
+
+                # only thing with value 0 is the minimum index value.
+                # wrap this into the first percentile bin, essentially 
+                # making the first bin a closed interval on both sides.
+                ceil_pct[ceil_pct==0] = 1
+                
+                out_v[:, day] = ceil_pct
             else : 
                 in_day = in_index[day,:]
-                out_v[day, :] = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)]
-                
+                ceil_pct = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)]
+                ceil_pct[ceil_pct == 0] = 1
+                out_v[day, :] = ceil_pct
     ds.close()
     out_templ.close()
     pct_ds.close()
