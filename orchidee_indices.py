@@ -567,11 +567,7 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
     
     The indices which are converted to percentile values are present as variables
     in the pctfile. pctfile contains the cutpoints for each variable's percentile
-    bins. The output is an integer array which is effectively the result of 
-    the "ceil" function. Valid percentile values are 1 to 100, inclusive.
-    Index values between the minimum and the 1st percentile cutpoint (inclusive) 
-    get value 1, between the 1st (exclusive) and 2nd (inclusive) cutpoint get value
-    2, and so on.
+    bins.
     
     Input file is specified by providing a filename as a dataset.
     
@@ -612,25 +608,17 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
         out_v = out_templ.create_variable(ind,
             in_index.dimensions, np.int8, fill=-127)
         
-        for pix in range(num_land) : 
-            if ipos_land == 0 : 
-                in_pix = in_index[pix,:]
-                # searchsorted with side = 'right' is essentially the 
-                # ceil function. 
-                ceil_pct = np.searchsorted(pct_index[pix,:], in_pix)
                 
-                # only thing with value 0 is the minimum index value.
-                # wrap this into the first percentile bin, essentially 
-                # making the first bin a closed interval on both sides.
-                ceil_pct[ceil_pct==0] = 1
-                out_v[pix,:] = ceil_pct
-            else: 
-                # same as above, different array indexing.
-                in_pix = in_index[:,pix]
-                ceil_pct = np.searchsorted(pct_index[pix,:], in_pix)
-                ceil_pct[ceil_pct==0] = 1
-                out_v[:,pix] = ceil_pct
-                                
+        #loop over time slice 
+        for day in range(time_slice.start,time_slice.stop) : 
+            print day
+            if ipos_land == 0 : 
+                in_day = in_index[:,day]
+                out_v[:, day] = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)] 
+            else : 
+                in_day = in_index[day,:]
+                out_v[day, :] = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)]
+                
     ds.close()
     out_templ.close()
     pct_ds.close()
