@@ -587,6 +587,10 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
     indices.remove('nav_lon')
     num_land = len(ds.dimensions[land_dim])
 
+    if time_slice is not None : 
+        out_templ._ncfile.start_day = time_slice.start
+        out_templ._ncfile.end_day   = time_slice.stop - 1
+
     # copy geolocation
     out_templ.copyVariable('nav_lat')
     out_templ.copyVariable('nav_lon')
