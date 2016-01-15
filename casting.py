@@ -5,6 +5,7 @@ import trend
 import numpy as np
 import time_series as ts
 import orchidee_indices as oi
+import burned_area as ba
 import accum_hist as ah
 from collections import namedtuple
 
@@ -42,32 +43,26 @@ def get_ratios(pcthisto) :
                    bin_edges=bin_edges) 
 
 def calc_mask(series, periods, pctfile, land_dim='land') :
+    """Calculates and returns a 1D mask representative of the 2D box found in pctfile.
+    
+    The returned 1D mask contains True when the pixel is included in the ROI,
+    False when the pixel is excluded from the ROI. For consistency, this code 
+    uses the same mask calculation function used by the burned_area module."""
     # read the bounding box if recorded in the file. 
     pct_ds = nc.Dataset(pctfile)
     if not ('max_lat' in pct_ds.ncattrs()) :
         pct_ds.close()
         return None
-    max_lat = pct_ds.max_lat
-    min_lat = pct_ds.min_lat
-    max_lon = pct_ds.max_lon
-    min_lon = pct_ds.min_lon
+    geog_box =  (pct_ds.min_lon, pct_ds.max_lon, 
+                 pct_ds.min_lat, pct_ds.max_lat)
     
     pct_ds.close()
     
     ds = series.get_dataset(periods.first())
     ca = trend.CompressedAxes(ds, land_dim)
     
-    nav_lat = ds.variables['nav_lat'][:]
-    nav_lon = ds.variables['nav_lon'][:]
-    
-    mask_2d = (nav_lat >= min_lat) & \
-              (nav_lat <= max_lat) & \
-              (nav_lon >= min_lon) & \
-              (nav_lon <= max_lon)
-    mask_1d = ca.compress(mask_2d)
-    
-    geog_box = (min_lon, max_lon, min_lat, max_lat)
-    
+    mask_1d = np.logical_not(ba.calc_geog_mask(ca, ds, geog_box))
+        
     return (mask_1d, geog_box)
             
 def calc_occurrence(p_date, index_series, index_manager,

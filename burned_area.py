@@ -367,7 +367,21 @@ def calc_geog_mask(ca, bafile, geog_box) :
     
     The lookup process to convert geographic lat/lon to 2d index values
     requires that the provided value actually be in the array. No in-betweens.
+    
+    The returned 1d mask is a boolean array where False indicates the pixel is
+    included in the ROI (not-masked), and True indicates the pixel is outside
+    the ROI.
     """
+    #
+    # TODO: This can be improved by not performing a lookup on the cell values.
+    #   This does flip the boolean "sense" of the result (included pixels are
+    #   True). 
+    # -    mask_2d = (nav_lat >= min_lat) & \
+    # -              (nav_lat <= max_lat) & \
+    # -              (nav_lon >= min_lon) & \
+    # -              (nav_lon <= max_lon)
+    # -    mask_1d = ca.compress(mask_2d)
+
     lats = q.CoordinateVariableSamplingFunction(bafile.variables['nav_lat'][:,0].tolist())
     lons = q.CoordinateVariableSamplingFunction(bafile.variables['nav_lon'][0,:].tolist())
     
