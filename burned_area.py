@@ -381,18 +381,21 @@ def calc_geog_mask(ca, bafile, geog_box) :
     # -              (nav_lon >= min_lon) & \
     # -              (nav_lon <= max_lon)
     # -    mask_1d = ca.compress(mask_2d)
+    
+    nav_lat = bafile.variables['nav_lat'][:]
+    nav_lon = bafile.variables['nav_lon'][:]
+    
+    min_lon = geog_box[0]
+    max_lon = geog_box[1]
+    min_lat = geog_box[2]
+    max_lat = geog_box[3]
 
-    lats = q.CoordinateVariableSamplingFunction(bafile.variables['nav_lat'][:,0].tolist())
-    lons = q.CoordinateVariableSamplingFunction(bafile.variables['nav_lon'][0,:].tolist())
-    
-    mask_2d = np.ones( bafile.variables['nav_lat'].shape, dtype=np.bool)
-    
-    lon_min = lons.get_index(geog_box[0])
-    lon_max = lons.get_index(geog_box[1])
-    lat_min = lats.get_index(geog_box[2])
-    lat_max = lats.get_index(geog_box[3])
-    
-    mask_2d[lat_min:lat_max,lon_min:lon_max] = False
+    # inverting the logic in the above comment yields a 2d mask where 
+    # included pixels get a False value (not-masked)
+    mask_2d = (min_lat > nav_lat) | \
+              (max_lat < nav_lat) | \
+              (min_lon > nav_lon) | \
+              (max_lon < nav_lon)
     
     return ca.compress(mask_2d)
     
