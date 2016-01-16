@@ -655,8 +655,15 @@ def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names,
         bafiles.append(nc.Dataset(ba_template % y))
         indfiles.append(nc.Dataset(ind_template % y))
 
-    # compute min/max
-    minmax = [[0, 100, 101]]
+    # compute min/max/bins
+    # objective is to achieve bins of exactly 1% in size.
+    # due to the method of percentile computation and integer 
+    # storage, the first bin is 1%, containing a count of all values
+    # less than or equal to the first percentile. The second bin contains
+    # a count of all values which lie in the semi-open interval (1,2]. etc.
+    # NOTE that we deal with integers here. The process of reducing the 
+    # intervals to an integer representation is handled in a prior process.
+    minmax = [[1, 100, 99]]
 
     for ind in ind_names : 
         ind_list = [ ind ]
