@@ -616,29 +616,31 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
         #loop over time slice 
         for day in range(time_slice.start,time_slice.stop) : 
             print day
+            
+            ceil_pct = ma.masked_all( (num_land,), dtype=np.int8)
             if ipos_land == 0 : 
                 in_day = in_index[:,day]
                 
+                
                 # searchsorted with side = 'right' is essentially the 
                 # ceil function.
-                ceil_pct = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)] 
+                for pix in range(num_land) : 
+                    if not ma.is_masked(in_day[pix]) :
+                        ceil_pct[pix] = np.searchsorted(pct_index[pix,:], in_day[pix])
 
                 # only thing with value 0 is the minimum index value.
                 # wrap this into the first percentile bin, essentially 
                 # making the first bin a closed interval on both sides.
-                try : 
-                    ceil_pct[(ceil_pct==0) & (~ceil_pct.mask)] =1 
-                except AttributeError :
-                    ceil_pct[ceil_pct==0] = 1
+                ceil_pct[(ceil_pct==0) & (~ceil_pct.mask)] =1 
                 
                 out_v[:, day] = ceil_pct
             else : 
                 in_day = in_index[day,:]
-                ceil_pct = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)]
-                try : 
-                    ceil_pct[(ceil_pct==0) & (~ceil_pct.mask)]=1
-                except AttributeError  :
-                    ceil_pct[ceil_pct == 0] = 1
+                for pix in range(num_land) : 
+                    if not ma.is_masked(in_day[pix]): 
+                        ceil_pct[pix] = np.searchsorted(pct_index[pix,:], in_day[pix])
+
+                ceil_pct[(ceil_pct==0) & (~ceil_pct.mask)]=1
                 out_v[day, :] = ceil_pct
     ds.close()
     out_templ.close()
