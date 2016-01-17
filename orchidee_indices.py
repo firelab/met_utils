@@ -626,13 +626,19 @@ def apply_percentile_year(dataset, pctfile, outfile, land_dim='land',
                 # only thing with value 0 is the minimum index value.
                 # wrap this into the first percentile bin, essentially 
                 # making the first bin a closed interval on both sides.
-                ceil_pct[ceil_pct==0] = 1
+                try : 
+                    ceil_pct[(ceil_pct==0) & (~ceil_pct.mask)] =1 
+                except AttributeError :
+                    ceil_pct[ceil_pct==0] = 1
                 
                 out_v[:, day] = ceil_pct
             else : 
                 in_day = in_index[day,:]
                 ceil_pct = [np.searchsorted(pct_index[pix,:], in_day[pix]) for pix in range(num_land)]
-                ceil_pct[ceil_pct == 0] = 1
+                try : 
+                    ceil_pct[(ceil_pct==0) & (~ceil_pct.mask)]=1
+                except AttributeError  :
+                    ceil_pct[ceil_pct == 0] = 1
                 out_v[day, :] = ceil_pct
     ds.close()
     out_templ.close()
