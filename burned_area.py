@@ -491,6 +491,7 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax,
             # as well as an array which selects out only pixels
             # having valid data.
             land_data, records = manager.get_indices_vector(indfile, i_day)
+            records = records[land_data]
                         
             occurrence.put_batch(records)
             burned_weight= np.zeros( (np.count_nonzero(land_data),))
