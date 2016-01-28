@@ -695,14 +695,15 @@ class IndexManager (object) :
         for i_data in range(len(filevars)):
             records[:,i_data] = filevars[i_data][i_day,:]
             
-        # filter out pixels where any of the indices are missing. (row-wise)    
-        # Merge in the geographic filter.
+        # filter out pixels where any of the indices are missing. (row-wise) 
+        # land_data is True if the pixel should be excluded.   
         if len(filevars) > 1 : 
             land_data = np.any(records.mask, axis=1)
         else : 
             land_data = records.mask.squeeze()
         
-        # Merge in the geog_mask, if specified    
+        # Merge in the geog_mask, if specified 
+        # also flip the land_data mask to mean included is True   
         if self.geog_mask is None :
             land_data = np.logical_not(land_data)
         else : 

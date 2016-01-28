@@ -371,17 +371,7 @@ def calc_geog_mask(ca, bafile, geog_box) :
     The returned 1d mask is a boolean array where False indicates the pixel is
     included in the ROI (not-masked), and True indicates the pixel is outside
     the ROI.
-    """
-    #
-    # TODO: This can be improved by not performing a lookup on the cell values.
-    #   This does flip the boolean "sense" of the result (included pixels are
-    #   True). 
-    # -    mask_2d = (nav_lat >= min_lat) & \
-    # -              (nav_lat <= max_lat) & \
-    # -              (nav_lon >= min_lon) & \
-    # -              (nav_lon <= max_lon)
-    # -    mask_1d = ca.compress(mask_2d)
-    
+    """    
     nav_lat = bafile.variables['nav_lat'][:]
     nav_lon = bafile.variables['nav_lon'][:]
     
@@ -390,16 +380,23 @@ def calc_geog_mask(ca, bafile, geog_box) :
     min_lat = geog_box[2]
     max_lat = geog_box[3]
 
+    # Calculate a mask where included pixels have a True value
+    # (positive logic)
+    mask_2d = (nav_lat >= min_lat) & \
+              (nav_lat <= max_lat) & \
+              (nav_lon >= min_lon) & \
+              (nav_lon <= max_lon)
+    mask_1d = ca.compress(mask_2d)
+    
     # inverting the logic in the above comment yields a 2d mask where 
     # included pixels get a False value (not-masked)
-    mask_2d = (min_lat > nav_lat) | \
-              (max_lat < nav_lat) | \
-              (min_lon > nav_lon) | \
-              (max_lon < nav_lon)
+    #mask_2d = (min_lat > nav_lat) | \
+    #          (max_lat < nav_lat) | \
+    #          (min_lon > nav_lon) | \
+    #          (max_lon < nav_lon)
     
-    return ca.compress(mask_2d)
-    
-            
+    return mask_1d
+           
 
 def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, 
                              day_range=None, geog_box=None) : 
@@ -445,10 +442,11 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax,
 
     ca = trend.CompressedAxes(ind_files[0], 'land')    
     
+    # convert the box into a mask where pixels are True if included.
     if geog_box is not None : 
         geog_mask = calc_geog_mask(ca, ba_files[0], geog_box)
     else : 
-        geog_mask = np.zeros( (one_day,), dtype=np.bool)
+        geog_mask = np.ones( (one_day,), dtype=np.bool)
 
     # initialize the IndexManager for this index file
     manager = oi.IndexManager(indices_names, geog_mask)

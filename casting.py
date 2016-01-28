@@ -61,7 +61,7 @@ def calc_mask(series, periods, pctfile, land_dim='land') :
     ds = series.get_dataset(periods.first())
     ca = trend.CompressedAxes(ds, land_dim)
     
-    mask_1d = np.logical_not(ba.calc_geog_mask(ca, ds, geog_box))
+    mask_1d = ba.calc_geog_mask(ca, ds, geog_box)
         
     return (mask_1d, geog_box)
             
