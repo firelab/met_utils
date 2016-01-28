@@ -204,7 +204,8 @@ def do_cast(index_pattern, indices, years, pcthisto, outfile,
             time_dim='days', time_slice=None) :
     """Creates the series objects and iterators, then performs the fore-or-hind cast.
     
-     index_pattern : filename pattern which should expect to receive a year
+     index_pattern : filename pattern which should expect to receive a datetime object
+                   : (e.g., "file_pattern_{:%Y}.nc".format(the_date))
      indices       : a list of indices to process in this run
      years         : a slice object with the start and stop years
      pcthisto      : percentile histogram file containing ratios of BA to occurrence

@@ -658,7 +658,6 @@ class IndexManager (object) :
     def __init__(self, indices_names, geog_mask=None) :
         """Initializes a manager object.
         
-         ind_series is a time series of files of indices.
          indices_names is a set of indices to read from the file.
          geog_mask is a 1D array of booleans where true values indicate that
           the cell is within the ROI.
