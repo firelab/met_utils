@@ -443,12 +443,15 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax,
     burned_other = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int64)
     burned_total = ah.AccumulatingHistogramdd(minmax=minmax, dtype=np.int64)
 
-    ca = trend.CompressedAxes(ind_files[0], 'land') 
+    ca = trend.CompressedAxes(ind_files[0], 'land')    
     
     if geog_box is not None : 
         geog_mask = calc_geog_mask(ca, ba_files[0], geog_box)
     else : 
         geog_mask = np.zeros( (one_day,), dtype=np.bool)
+
+    # initialize the IndexManager for this index file
+    manager = oi.IndexManager(indices_names, geog_mask)
 
     for i_year in range(len(ind_files)) : 
         # fetch the correct file handles for this year
@@ -461,20 +464,16 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax,
         lc_edges = landcover_classification(bafile.variables['landcover'][:])
         lc_type = rv.CutpointReduceVar(count.shape[:-1], 2, lc_edges)
         
+        
         # get number of samples along the time dimension
         timelim = len(indfile.dimensions['days'])-1
         timerange = range(1,timelim)
         if day_range is not None : 
             timerange = range(day_range.start, day_range.stop)
-        
-        # get variable references for each index
-        filevars = [ indfile.variables[iname] for iname in indices_names ] 
-        
+                
         for i_day in timerange : 
             print i_year, i_day
-            # grab one day's worth of data out of each index variable
-            day_data = [ f[i_day,:] for f in filevars ]
-            
+                        
             # grab one day's worth of data 
             ba_day = count[...,i_day]
             
@@ -488,26 +487,11 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax,
             ba_nonforest_cmp = ca.compress(ba_nonforest)
             ba_other_cmp = ca.compress(ba_other)
             
-            # construct an array of records for all land pixels in a single 
-            # day. Also construct a mask which can be used to pull data from
-            # the weights arrays
-            records = ma.zeros( (one_day, len(day_data)))
-            
-            # compile all the records for a single day (column-wise)
-            for i_data in range(len(day_data)):
-                records[:,i_data] = day_data[i_data]
-                
-            # filter out pixels where any of the indices are missing. (row-wise)    
-            # Merge in the geographic filter.
-            if len(day_data) > 1 : 
-                land_data = np.any(records.mask, axis=1)
-            else : 
-                land_data = records.mask.squeeze()
-            land_data = np.logical_not(land_data | geog_mask)
-                
-            # extract out just the records with data
-            records = records[land_data,:]    
-            
+            # get the index values from the file, 
+            # as well as an array which selects out only pixels
+            # having valid data.
+            land_data, records = manager.get_indices_vector(indfile, i_day)
+                        
             occurrence.put_batch(records)
             burned_weight= np.zeros( (np.count_nonzero(land_data),))
             
