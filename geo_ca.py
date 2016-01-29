@@ -37,7 +37,7 @@ class GeoCompressedAxes ( trend.CompressedAxes )  :
     def calc_1d_index(self, lat, lon) : 
         """takes geospatial coordinates and calculates the 1D index"""
         idx_2d = self.calc_2d_index(lat,lon)
-        return self.getCompressedIndex(idx_2d)
+        return self.find_grid_index(idx_2d)
         
     def evaluate_grid(self, grid, lat, lon) : 
         """returns the value of the grid cell at the lat/lon location"""
