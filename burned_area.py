@@ -646,7 +646,8 @@ def ba_multiyear_pct_histogram(years, ba_template, ind_template, ind_names,
     # a count of all values which lie in the semi-open interval (1,2]. etc.
     # NOTE that we deal with integers here. The process of reducing the 
     # intervals to an integer representation is handled in a prior process.
-    minmax = [[1, 100, 99]]
+    # We want 100 bins numbered from 1 to 100.
+    minmax = [[1, 101, 100]]
 
     for ind in ind_names : 
         ind_list = [ ind ]
