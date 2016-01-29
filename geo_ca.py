@@ -30,14 +30,31 @@ class GeoCompressedAxes ( trend.CompressedAxes )  :
         
         self._samp = qi.OrthoIndexer([lat_samp,lon_samp])
         
+    def calc_2d_index(self, lat, lon) : 
+        """takes geospatial coordinates and calculates the 2D index"""
+        return self._samp.get_index( (lat,lon) )     
         
+    def calc_1d_index(self, lat, lon) : 
+        """takes geospatial coordinates and calculates the 1D index"""
+        idx_2d = self.calc_2d_index(lat,lon)
+        return self.getCompressedIndex(idx_2d)
+        
+    def evaluate_grid(self, grid, lat, lon) : 
+        """returns the value of the grid cell at the lat/lon location"""
+        idx_2d = self.calc_2d_index(lat,lon)
+        return grid[idx_2d]
+        
+    def evaluate_vec(self, vec, lat, lon) : 
+        """returns the value of the vector at the lat/lon location"""
+        idx_1d = self.calc_1d_index(lat,lon)
+        return vec[idx_1d]
         
     def set_clip_box(self, min_lat, max_lat, min_lon, max_lon) : 
         """set this object's mask to the provided lat/lon box"""
         mask = np.ones(self._dimshape, dtype=np.bool)
         
-        i_min_lat, i_min_lon = self._samp.get_index( (min_lat, min_lon))
-        i_max_lat, i_max_lon = self._samp.get_index( (max_lat, max_lon))
+        i_min_lat, i_min_lon = self.calc_2d_index(min_lat, min_lon)
+        i_max_lat, i_max_lon = self.calc_2d_index(max_lat, max_lon)
         
         # unmask the inside of the window
         mask[i_min_lat:i_max_lat+1, i_min_lon:i_max_lon+1] = False
