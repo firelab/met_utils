@@ -368,8 +368,8 @@ def calc_geog_mask(ca, bafile, geog_box) :
     The lookup process to convert geographic lat/lon to 2d index values
     requires that the provided value actually be in the array. No in-betweens.
     
-    The returned 1d mask is a boolean array where False indicates the pixel is
-    included in the ROI (not-masked), and True indicates the pixel is outside
+    The returned 1d mask is a boolean array where True indicates the pixel is
+    included in the ROI (not-masked), and False indicates the pixel is outside
     the ROI.
     """    
     nav_lat = bafile.variables['nav_lat'][:]
