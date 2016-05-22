@@ -450,8 +450,8 @@ def add_orchidee_as_index(orchidee, indexfile, varname) :
     idx = nc.Dataset(indexfile, "a")
     
     window_var = orc.variables[varname]
-    window_lons = orc.variables['lons']
-    window_lats = orc.variables['lats']
+    window_lons = orc.variables['lon']
+    window_lats = orc.variables['lat']
     geog_box = [ np.min(window_lons), np.max(window_lons),
                  np.min(window_lats), np.max(window_lats) ]
                  
@@ -465,7 +465,7 @@ def add_orchidee_as_index(orchidee, indexfile, varname) :
           ('days', 'land'))
     
     # copy data one day at a time      
-    for d in idx.variables['days'][:] : 
+    for d in range(len(idx.dimensions['days'])) : 
         # get the data from the orchidee simulation
         day_data = window_var[d,...]
         
