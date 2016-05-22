@@ -437,7 +437,50 @@ def multifile_open(datasets, years) :
             files.append(nc.Dataset(datasets %y))
         datasets = files
     return datasets
+
+def add_orchidee_as_index(orchidee, indexfile, varname) :
+    """copies an orchidee output to the indexfile.
+    The file name "orchidee" must represent a rebuilt orchidee
+    file. (meaning that there is one file representing the 
+    entire spatial domain for the year, as opposed to 
+    the raw orchidee output which is one file per processor
+    per year.)
+    "indexfile" must already exist and must be writeable."""
+    orc = nc.Dataset(orchidee)
+    idx = nc.Dataset(indexfile, "a")
     
+    window_var = orc.variables[varname]
+    window_lons = orc.variables['lons']
+    window_lats = orc.variables['lats']
+    geog_box = [ np.min(window_lons), np.max(window_lons),
+                 np.min(window_lats), np.max(window_lats) ]
+                 
+    ds_lats = idx.variables['nav_lat'][:,0]
+    ds_lons = idx.variables['nav_lon'][0,:]
+    w = trend.Window(ds_lats, ds_lons, geog_box)
+    ca = trend.CompressedAxes(idx, 'land')
+    
+    # create the output variable
+    outvar = idx.createVariable(varname, window_var.dtype,
+          ('days', 'land'))
+    
+    # copy data one day at a time      
+    for d in idx.variables['days'][:] : 
+        # get the data from the orchidee simulation
+        day_data = window_var[d,...]
+        
+        # pad the data so it's the same size as 
+        # the data in the index file.
+        day_data = w.set_window(day_data)
+        
+        # compress it down to 1D vector
+        compressed_day_data = ca.compress(day_data)
+        
+        # write it to file
+        outvar[d,:] = compressed_day_data
+        
+    orc.close()
+    idx.close()
 
 def multifile_minmax(datasets, indices, years=None) : 
     """calculates minimum and maximum of indices across multiple files
