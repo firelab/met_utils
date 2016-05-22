@@ -80,7 +80,7 @@ class BurnedAreaShapefile ( object )  :
         """returns features in ascending order by date
         
         destroy the returned layed with release_results()"""
-        sql = "SELECT * FROM '%s' ORDER BY DATE" % self.layerName
+        sql = "SELECT * FROM '%s' ORDER BY FIRST" % self.layerName
         return self.dataSource.ExecuteSQL(sql)
         
     def release_results(self, query) : 
@@ -157,7 +157,7 @@ def ba_year(year, template, ncfile, shapefile)  :
     layer = shp.query_ascending_date()      
     for feature in layer :
         # first, compute the day index of this new item 
-        t = feature.GetField("DATE")
+        t = feature.GetField("FIRST")
         dt = dup.parse(t)
         # convert to UTC if necessary
         if dt.tzinfo is not None: 
