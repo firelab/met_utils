@@ -481,6 +481,42 @@ def add_orchidee_as_index(orchidee, indexfile, varname) :
         
     orc.close()
     idx.close()
+    
+def calc_geog_mask(ca, bafile, geog_box) : 
+    """calculates a 1d mask based on a tuple representing a bounding box
+    expressed in lat/lon
+    
+    The lookup process to convert geographic lat/lon to 2d index values
+    requires that the provided value actually be in the array. No in-betweens.
+    
+    The returned 1d mask is a boolean array where True indicates the pixel is
+    included in the ROI (not-masked), and False indicates the pixel is outside
+    the ROI.
+    """    
+    nav_lat = bafile.variables['nav_lat'][:]
+    nav_lon = bafile.variables['nav_lon'][:]
+    
+    min_lon = geog_box[0]
+    max_lon = geog_box[1]
+    min_lat = geog_box[2]
+    max_lat = geog_box[3]
+
+    # Calculate a mask where included pixels have a True value
+    # (positive logic)
+    mask_2d = (nav_lat >= min_lat) & \
+              (nav_lat <= max_lat) & \
+              (nav_lon >= min_lon) & \
+              (nav_lon <= max_lon)
+    mask_1d = ca.compress(mask_2d)
+    
+    # inverting the logic in the above comment yields a 2d mask where 
+    # included pixels get a False value (not-masked)
+    #mask_2d = (min_lat > nav_lat) | \
+    #          (max_lat < nav_lat) | \
+    #          (min_lon > nav_lon) | \
+    #          (max_lon < nav_lon)
+    
+    return mask_1d
 
 def multifile_minmax(datasets, indices, years=None) : 
     """calculates minimum and maximum of indices across multiple files
@@ -758,3 +794,73 @@ class IndexManager (object) :
         """Looks up the file and position within file given the time-series and date"""
         ind_ds, i_day = ind_series.get_location(day)
         return self.get_indices_vector(ind_ds, i_day)
+
+class IndexAverager (IndexManager) : 
+    """Base class for annual index operations.
+    """
+    def __init__(self, indices_names, geog_mask=None, time_slice=None) :
+        super(IndexAverager, self).__init__(indices_names, geog_mask)
+        if time_slice is None : 
+            self.days = range(366)
+        else : 
+            self.days = range(time_slice.start, time_slice.stop)
+        self.time_slice = time_slice
+        
+    def process_year(self, ind_ds) :
+        """Computes the per-pixel temporal average for the named indices"""
+        self.start()
+                
+        for day in self.days : 
+            land_data, records = self.get_indices_vector(ind_ds, day)
+            self.process_day(land_data, records)
+        self.finish()
+        
+        return self.total
+    
+    def process_day(self, land_data, records) :                 
+        if self.total is None : 
+            self.total = ma.zeros( (records.shape[0], len(self.indices_names)), 
+                                dtype=np.float32)
+            
+        self.total += records
+        self.count += 1
+        
+    def start(self) : 
+        self.count = 0
+        self.total = None
+
+            
+    def finish(self) : 
+        self.total /= self.count
+
+def indices_averages(datasets, years, indices_names, outfile, 
+                geog_box=None, time_slice=None) :
+
+    out_ds = nc.Dataset(outfile, "w")
+    datasets = multifile_open(datasets, years) 
+    
+    out_var = None
+    geog_mask = None
+    if geog_box is not None : 
+        geog_mask = calc_geog_mask(geog_box)
+    
+    ia = IndexAverager(indices_names, geog_mask=geog_mask, time_slice=time_slice)
+    
+    for i in range(len(years)) : 
+        y = years[i]
+        d = datasets[i]
+        current = ia.process_year(d)
+        
+        if out_var is None : 
+            out_var = [ ]
+            for idx in indices_names : 
+                out_var.append(out_ds.createVariable(idx, np.float32, 
+                                (current.shape[0],len(years))))
+                                
+        for j in range(len(indices_names)) : 
+            out_var[j][:,i] = current[:,j]
+            
+    out_ds.close() 
+    for d in datasets : 
+        d.close()
+    

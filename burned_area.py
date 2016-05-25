@@ -361,41 +361,6 @@ def compute_ratio_histo(ratios, minmax, min_bins=5):
 
     return ratio_histogram
 
-def calc_geog_mask(ca, bafile, geog_box) : 
-    """calculates a 1d mask based on a tuple representing a bounding box
-    expressed in lat/lon
-    
-    The lookup process to convert geographic lat/lon to 2d index values
-    requires that the provided value actually be in the array. No in-betweens.
-    
-    The returned 1d mask is a boolean array where True indicates the pixel is
-    included in the ROI (not-masked), and False indicates the pixel is outside
-    the ROI.
-    """    
-    nav_lat = bafile.variables['nav_lat'][:]
-    nav_lon = bafile.variables['nav_lon'][:]
-    
-    min_lon = geog_box[0]
-    max_lon = geog_box[1]
-    min_lat = geog_box[2]
-    max_lat = geog_box[3]
-
-    # Calculate a mask where included pixels have a True value
-    # (positive logic)
-    mask_2d = (nav_lat >= min_lat) & \
-              (nav_lat <= max_lat) & \
-              (nav_lon >= min_lon) & \
-              (nav_lon <= max_lon)
-    mask_1d = ca.compress(mask_2d)
-    
-    # inverting the logic in the above comment yields a 2d mask where 
-    # included pixels get a False value (not-masked)
-    #mask_2d = (min_lat > nav_lat) | \
-    #          (max_lat < nav_lat) | \
-    #          (min_lon > nav_lon) | \
-    #          (max_lon < nav_lon)
-    
-    return mask_1d
            
 
 def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax, 
@@ -444,7 +409,7 @@ def ba_multifile_histograms(ba_files, ind_files, indices_names,minmax,
     
     # convert the box into a mask where pixels are True if included.
     if geog_box is not None : 
-        geog_mask = calc_geog_mask(ca, ba_files[0], geog_box)
+        geog_mask = oi.calc_geog_mask(ca, ba_files[0], geog_box)
     else : 
         geog_mask = np.ones( (one_day,), dtype=np.bool)
 
