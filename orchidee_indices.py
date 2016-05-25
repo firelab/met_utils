@@ -836,8 +836,15 @@ class IndexAverager (IndexManager) :
 def indices_averages(datasets, years, indices_names, outfile, 
                 geog_box=None, time_slice=None) :
 
-    out_ds = nc.Dataset(outfile, "w")
+    file_0 = datasets % years[0]
     datasets = multifile_open(datasets, years) 
+    out_ds = agg.NetCDFTemplate(file_0,outfile)
+    out_ds.copyDimension('land')
+    out_ds.copyVariable('nav_lat')
+    out_ds.copyVariable('nav_lon')
+    out_ds.createDimension('years', len(years))
+    out_y = out_ds.create_variable('years', ('years',), np.int)
+    out_y[:] = years
     
     out_var = None
     geog_mask = None
@@ -854,8 +861,8 @@ def indices_averages(datasets, years, indices_names, outfile,
         if out_var is None : 
             out_var = [ ]
             for idx in indices_names : 
-                out_var.append(out_ds.createVariable(idx, np.float32, 
-                                (current.shape[0],len(years))))
+                out_var.append(out_ds.create_variable(idx, ('land','years'),
+                               np.float32, fill=-1)) 
                                 
         for j in range(len(indices_names)) : 
             out_var[j][:,i] = current[:,j]
