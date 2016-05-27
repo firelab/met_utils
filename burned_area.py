@@ -554,7 +554,8 @@ def write_multiyear_histogram_file(outfile, histos, ind_names, minmax,
     ofile.close()
 
 def ba_multiyear_histogram(years, ba_template, ind_template, ind_names, 
-                outfile=None, bins=10, minmaxyears=None) :
+                outfile=None, bins=10, minmaxyears=None, day_range=None,
+                geog_box=None) :
     """computes multiyear histograms and stores in a netcdf file."""
 
     # open netcdf files
@@ -575,11 +576,13 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
     minmax = zip(minmax[0], minmax[1], bins)
 
     # compute histogram
-    histos = ba_multifile_histograms(bafiles, indfiles, ind_names, minmax)
+    histos = ba_multifile_histograms(bafiles, indfiles, ind_names, minmax,
+                        day_range, geog_box)
     
     # write output
     if outfile is not None : 
-        write_multiyear_histogram_file(outfile, histos, ind_names, minmax)
+        write_multiyear_histogram_file(outfile, histos, ind_names, minmax,
+                        day_range, geog_box)
 
     # close netcdf files
     for i_files in range(len(years)) : 
