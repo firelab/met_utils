@@ -508,7 +508,7 @@ def create_multiyear_histogram_file(outfile, ind_names, minmax) :
         ofile.createDimension(indname, cur_bins)
         cv = ofile.createVariable(indname, np.float64, dimensions=(indname,)) 
         binsize    = float(cur_max - cur_min)/cur_bins
-        cv[:] = np.arange(cur_min, cur_max, binsize)
+        cv[:] = np.linspace(cur_min, cur_max, cur_bins, endpoint=False)
         cv.binsize = binsize
         
     return ofile
