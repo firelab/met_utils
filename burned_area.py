@@ -567,9 +567,11 @@ def ba_multiyear_histogram(years, ba_template, ind_template, ind_names,
 
     # compute min/max
     if minmaxyears is None :
-        minmax = oi.multifile_minmax(indfiles, ind_names)
+        minmax = oi.multifile_minmax(indfiles, ind_names,
+              day_range=day_range, geog_box=geog_box)
     else :
-        minmax = oi.multifile_minmax(ind_template, ind_names, years=minmaxyears)
+        minmax = oi.multifile_minmax(ind_template, ind_names, 
+              years=minmaxyears, day_range=day_range, geog_box=geog_box)
         
     if not ('__iter__' in dir(bins)) : 
         bins = [ bins ] * len(ind_names)

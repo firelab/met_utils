@@ -536,7 +536,8 @@ def multifile_minmax(datasets, indices, years=None,day_range=None,geog_box=None)
         
     geog_mask = slice(None,None,None)
     if geog_box is not None : 
-        geog_mask = calc_geog_mask(datasets[0], geog_box)
+        ca = trend.CompressedAxes(datasets[0], 'land')
+        geog_mask = calc_geog_mask(ca, datasets[0], geog_box)
         
     
     num_ind = len(indices)
@@ -545,15 +546,18 @@ def multifile_minmax(datasets, indices, years=None,day_range=None,geog_box=None)
     for i_year in range(len(datasets)) : 
         indfile = datasets[i_year]
         for i_indices in range(num_ind) : 
-            index_vals = indfile.variables[indices[i_indices]][days,geog_mask]
-            cur_max = np.max(index_vals)
-            cur_min = np.min(index_vals)
-            if minvals[i_indices] is ma.masked : 
-                minvals[i_indices] = cur_min
-                maxvals[i_indices] = cur_max
-            else : 
-                minvals[i_indices] = min(cur_min, minvals[i_indices])
-                maxvals[i_indices] = max(cur_max, maxvals[i_indices])
+            for d in range(days.start,days.stop) : 
+                print d
+                index_vals = indfile.variables[indices[i_indices]][d,:]
+                index_vals = index_vals[geog_mask]
+                cur_max = np.max(index_vals)
+                cur_min = np.min(index_vals)
+                if minvals[i_indices] is ma.masked : 
+                    minvals[i_indices] = cur_min
+                    maxvals[i_indices] = cur_max
+                else : 
+                    minvals[i_indices] = min(cur_min, minvals[i_indices])
+                    maxvals[i_indices] = max(cur_max, maxvals[i_indices])
 
     return (minvals,maxvals)
 
