@@ -518,7 +518,7 @@ def calc_geog_mask(ca, bafile, geog_box) :
     
     return mask_1d
 
-def multifile_minmax(datasets, indices, years=None) : 
+def multifile_minmax(datasets, indices, years=None,day_range=None,geog_box=None) : 
     """calculates minimum and maximum of indices across multiple files
     
     You may call this function with a list of previously opened NetCDF 
@@ -529,14 +529,23 @@ def multifile_minmax(datasets, indices, years=None) :
     
     datasets = multifile_open(datasets, years)
     
+    if day_range is not None : 
+        days = day_range
+    else : 
+        days = slice(1,len(datasets[0].dimensions['days'])-1)
+        
+    geog_mask = slice(None,None,None)
+    if geog_box is not None : 
+        geog_mask = calc_geog_mask(datasets[0], geog_box)
+        
+    
     num_ind = len(indices)
     minvals = ma.masked_all( (num_ind,), dtype=np.float64)
     maxvals = ma.masked_all( (num_ind,), dtype=np.float64)
     for i_year in range(len(datasets)) : 
         indfile = datasets[i_year]
-        timelim = len(indfile.dimensions['days'])-1
         for i_indices in range(num_ind) : 
-            index_vals = indfile.variables[indices[i_indices]][1:timelim,:]
+            index_vals = indfile.variables[indices[i_indices]][days,geog_mask]
             cur_max = np.max(index_vals)
             cur_min = np.min(index_vals)
             if minvals[i_indices] is ma.masked : 
@@ -545,10 +554,6 @@ def multifile_minmax(datasets, indices, years=None) :
             else : 
                 minvals[i_indices] = min(cur_min, minvals[i_indices])
                 maxvals[i_indices] = max(cur_max, maxvals[i_indices])
-
-    if years is not None : 
-        for f in minmax_indfiles : 
-            f.close()
 
     return (minvals,maxvals)
 
