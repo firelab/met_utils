@@ -38,9 +38,13 @@ def landcover_classification(v) :
     FOREST_LC and NONFOREST_LC, with a third class constructed from
     landcover codes greater than the last value contained in NONFOREST_LC.
     """
-    edges = [ 0 ]
-    state = 'f'
+    edges = [ ]
+    state = 'start'
     for i in range(len(v)) : 
+        if state == 'start' : 
+            if v[i] not in FOREST_LC : continue
+            edges.append(i)
+            state = 'f'
         if state == 'f' : 
             if v[i] in FOREST_LC : continue
             edges.append(i)
